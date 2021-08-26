@@ -51,7 +51,7 @@ fi
 ##################################################################################################################
 printf_head "Initializing the installer"
 ##################################################################################################################
-if ! cmd_exists systemmgr; then
+if ! builtin type -P systemmgr &>/dev/null; then
   grab_remote_file curl -LSs https://github.com/casjay-dotfiles/scripts/raw/main/install.sh -o /tmp/scripts-install.sh 
   chmod 755 /tmp/scripts-install.sh
   run_external /tmp/scripts-install.sh
