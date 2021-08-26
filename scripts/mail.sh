@@ -136,7 +136,6 @@ install_pkg nail
 install_pkg e2fsprogs
 install_pkg redhat-lsb
 install_pkg neovim
-install_pkg wget
 install_pkg unzip
 run_external rm -Rf /tmp/dotfiles
 run_external timedatectl set-timezone America/New_York
@@ -156,7 +155,6 @@ run_grub
 ##################################################################################################################
 printf_head "Installing the packages for my email server"
 ##################################################################################################################
-
 install_pkg acl
 install_pkg aic94xx-firmware
 install_pkg alsa-firmware
@@ -843,12 +841,12 @@ system_service_enable ntpd
 system_service_enable snmpd
 system_service_enable cockpit.socket
 system_service_enable named
+system_service_enable httpd
+system_service_enable nginx
 
 ##################################################################################################################
 printf_head "Cleaning up"
 ##################################################################################################################
-system_service_enable httpd
-system_service_enable nginx
 echo "" >/etc/yum/pluginconf.d/subscription-manager.conf
 rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
 /root/bin/changeip.sh >/dev/null 2>&1
