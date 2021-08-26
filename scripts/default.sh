@@ -67,6 +67,7 @@ disable_selinux() {
 }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$*" || exit 1; }
+save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
 retrieve_version_file() { grab_remote_file https://github.com/casjay-base/centos/raw/main/version.txt | head -n1 || echo "Unknown version"; }
 run_grub() {
   printf_green "Setting up grub"
@@ -92,7 +93,7 @@ fi
 printf_head "Initializing the installer"
 ##################################################################################################################
 if ! builtin type -P systemmgr &>/dev/null; then
-  grab_remote_file https://github.com/casjay-dotfiles/scripts/raw/main/install.sh -o /tmp/scripts-install.sh
+  save_remote_file "https://github.com/casjay-dotfiles/scripts/raw/main/install.sh" "/tmp/scripts-install.sh"
   chmod 755 /tmp/scripts-install.sh
   run_external /tmp/scripts-install.sh
 fi
@@ -100,7 +101,7 @@ run_external systemmgr install installer
 run_external "yum clean all"
 if [ "$(hostname -s)" != "pbx" ]; then
   run_external rm -Rf /etc/yum.repos.d/*
-  grab_remote_file https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo -o /etc/yum.repos.d/casjay.repo
+  save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
 fi
 
 ##################################################################################################################
@@ -146,7 +147,7 @@ done
 run_external rm -Rf /root/anaconda-ks.cfg /var/log/anaconda
 if [ "$(hostname -s)" != "pbx" ]; then
   run_external rm -Rf /etc/yum.repos.d/*
-  grab_remote_file https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo -o /etc/yum.repos.d/casjay.repo
+  save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
 fi
 run_external yum clean all
 run_external yum update -q -y --skip-broken
