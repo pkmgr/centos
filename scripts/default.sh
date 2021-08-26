@@ -27,35 +27,24 @@ else
   . "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+shift $#
 system_service_exists() {
-  if systemctl status "$1" >/dev/null 2>&1; then return 0; else return 1; fi
-  setexitstatus
-  set --
+  systemctl status "$1" 2>&1 | grep -q "$1" && return 0 || return 1
 }
 system_service_enable() {
-  if system_service_exists "$1" && systemctl status "$1" | grep -Fq enabled; then execute "systemctl enable --now -f $1" "Enabling service: $1"; fi
-  setexitstatus
-  set --
+  system_service_exists "$1" && systemctl status "$1" 2>& | grep -Fq enabled && execute "systemctl enable --now -f $1" "Enabling service: $1" || return 1
 }
 system_service_disable() {
-  if system_service_exists "$1" && systemctl status "$1" | grep -Fq disabled; then execute "systemctl disable --now $1" "Disabling service: $1"; fi
-  setexitstatus
-  set --
+  system_service_exists "$1" && systemctl status "$1" 2>& | grep -Fq disabled && execute "systemctl disable --now $1" "Disabling service: $1" || return 1
 }
 test_pkg() {
   devnull rpm -q $1 && printf_blue "$1 is installed" && return 1 || return 0
-  setexitstatus
-  set --
 }
 remove_pkg() {
   if ! test_pkg "$1"; then execute "yum remove -q -y $*" "Removing: $*"; fi
-  setexitstatus
-  set --
 }
 install_pkg() {
   if test_pkg "$1"; then execute "yum install -q -y --skip-broken $*" "Installing: $*"; fi
-  setexitstatus
-  set --
 }
 detect_selinux() {
   selinuxenabled
@@ -81,17 +70,16 @@ run_post() {
   setexitstatus
   set --
 }
+
+##################################################################################################################
+printf_head "Initializing the installer"
+##################################################################################################################
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[ -n "$1" ] && printf_exit 'To many options provided'
 if [ -f /etc/casjaysdev/updates/versions/default.txt ]; then
   printf_red "This has already been installed"
   printf_red "To reinstall please remove the version file in"
   printf_exit "/etc/casjaysdev/updates/versions/default.txt"
 fi
-
-##################################################################################################################
-printf_head "Initializing the installer"
-##################################################################################################################
 if ! builtin type -P systemmgr &>/dev/null; then
   save_remote_file "https://github.com/casjay-dotfiles/scripts/raw/main/install.sh" "/tmp/scripts-install.sh"
   chmod 755 /tmp/scripts-install.sh
