@@ -7,7 +7,7 @@
 # @License     : WTFPL
 # @Copyright   : Copyright (c) CasjaysDev
 # @Description : Template installer for CentOS
-# @Resource    : 
+# @Resource    :
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 APPNAME="$(basename $0)"
 USER="${SUDO_USER:-${USER}}"
@@ -19,40 +19,80 @@ SCRIPTSFUNCTDIR="${SCRIPTSFUNCTDIR:-/usr/local/share/CasjaysDev/scripts}"
 SCRIPTSFUNCTFILE="${SCRIPTSFUNCTFILE:-system-installer.bash}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ -f "../functions/$SCRIPTSFUNCTFILE" ]; then
-    . "../functions/$SCRIPTSFUNCTFILE"
+  . "../functions/$SCRIPTSFUNCTFILE"
 elif [ -f "$SCRIPTSFUNCTDIR/functions/$SCRIPTSFUNCTFILE" ]; then
-    . "$SCRIPTSFUNCTDIR/functions/$SCRIPTSFUNCTFILE"
+  . "$SCRIPTSFUNCTDIR/functions/$SCRIPTSFUNCTFILE"
 else
-    curl -LSs "$SCRIPTSFUNCTURL/$SCRIPTSFUNCTFILE" -o "/tmp/$SCRIPTSFUNCTFILE" || exit 1
-    . "/tmp/$SCRIPTSFUNCTFILE"
+  curl -LSs "$SCRIPTSFUNCTURL/$SCRIPTSFUNCTFILE" -o "/tmp/$SCRIPTSFUNCTFILE" || exit 1
+  . "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-system_service_exists() { if systemctl status "$1" >/dev/null 2>&1; then return 0 ; else return 1 ; fi ; setexitstatus ; set -- ;}
-system_service_enable() { if system_service_exists "$1" && systemctl status "$1" | grep -Fq enabled; then execute "systemctl enable --now -f $1" "Enabling service: $1" ; fi ; setexitstatus ; set -- ;}
-system_service_disable() { if system_service_exists "$1" && systemctl status "$1" | grep -Fq disabled; then execute "systemctl disable --now $1" "Disabling service: $1" ; fi ; setexitstatus ; set --;}
-test_pkg() { devnull rpm -q $1 && printf_blue "$1 is installed" && return 1 || return 0 ; setexitstatus ; set -- ;}
-remove_pkg() { if ! test_pkg "$1" ; then execute "yum remove -q -y $*" "Removing: $*" ; fi ; setexitstatus ; set -- ;}
-install_pkg() { if test_pkg "$1" ; then execute "yum install -q -y --skip-broken $*" "Installing: $*" ; fi ; setexitstatus ; set --  ;}
-detect_selinux() { selinuxenabled; if [ $? -ne 0 ]; then return 0; else return 1 ; fi ;}
-disable_selinux() { selinuxenabled; devnull setenforce 0 ;}
-grab_remote_file() { urlverify "$1" && curl -sSLq "$*" || exit 1 ;}
-run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 ;}
-retrieve_version_file() { grab_remote_file https://github.com/casjay-base/centos/raw/main/version.txt | head -n1 || echo "Unknown version" ;}
-run_grub() { printf_green "Setting up grub"; rm -Rf /boot/*rescue* ; devnull grub2-mkconfig -o /boot/grub2/grub.cfg ;}
-run_post() { local e="$1" ; local m="$(echo $1 | sed 's#devnull ##g')" ; execute "$e" "executing: $m" ; setexitstatus ; set -- ;}
+system_service_exists() {
+  if systemctl status "$1" >/dev/null 2>&1; then return 0; else return 1; fi
+  setexitstatus
+  set --
+}
+system_service_enable() {
+  if system_service_exists "$1" && systemctl status "$1" | grep -Fq enabled; then execute "systemctl enable --now -f $1" "Enabling service: $1"; fi
+  setexitstatus
+  set --
+}
+system_service_disable() {
+  if system_service_exists "$1" && systemctl status "$1" | grep -Fq disabled; then execute "systemctl disable --now $1" "Disabling service: $1"; fi
+  setexitstatus
+  set --
+}
+test_pkg() {
+  devnull rpm -q $1 && printf_blue "$1 is installed" && return 1 || return 0
+  setexitstatus
+  set --
+}
+remove_pkg() {
+  if ! test_pkg "$1"; then execute "yum remove -q -y $*" "Removing: $*"; fi
+  setexitstatus
+  set --
+}
+install_pkg() {
+  if test_pkg "$1"; then execute "yum install -q -y --skip-broken $*" "Installing: $*"; fi
+  setexitstatus
+  set --
+}
+detect_selinux() {
+  selinuxenabled
+  if [ $? -ne 0 ]; then return 0; else return 1; fi
+}
+disable_selinux() {
+  selinuxenabled
+  devnull setenforce 0
+}
+grab_remote_file() { urlverify "$1" && curl -sSLq "$*" || exit 1; }
+run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1; }
+retrieve_version_file() { grab_remote_file https://github.com/casjay-base/centos/raw/main/version.txt | head -n1 || echo "Unknown version"; }
+run_grub() {
+  printf_green "Setting up grub"
+  rm -Rf /boot/*rescue*
+  devnull grub2-mkconfig -o /boot/grub2/grub.cfg
+}
+run_post() {
+  local e="$1"
+  local m="$(echo $1 | sed 's#devnull ##g')"
+  execute "$e" "executing: $m"
+  setexitstatus
+  set --
+}
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[ ! -z "$1" ] && printf_exit 'To many options provided'
+[ -n "$1" ] && printf_exit 'To many options provided'
 if [ -f /etc/casjaysdev/updates/versions/default.txt ]; then
-printf_red "This has already been installed"
-printf_red "To reinstall please remove the version file in"
-printf_exit "/etc/casjaysdev/updates/versions/default.txt"
+  printf_red "This has already been installed"
+  printf_red "To reinstall please remove the version file in"
+  printf_exit "/etc/casjaysdev/updates/versions/default.txt"
 fi
 
 ##################################################################################################################
 printf_head "Initializing the installer"
 ##################################################################################################################
 if ! builtin type -P systemmgr &>/dev/null; then
-  grab_remote_file curl -LSs https://github.com/casjay-dotfiles/scripts/raw/main/install.sh -o /tmp/scripts-install.sh 
+  grab_remote_file curl -LSs https://github.com/casjay-dotfiles/scripts/raw/main/install.sh -o /tmp/scripts-install.sh
   chmod 755 /tmp/scripts-install.sh
   run_external /tmp/scripts-install.sh
 fi
@@ -74,20 +114,20 @@ printf_head "Configuring cores for compiling"
 numberofcores=$(grep -c ^processor /proc/cpuinfo)
 printf_info "Total cores avaliable: $numberofcores"
 if [ -f /etc/makepkg.conf ]; then
-if [ $numberofcores -gt 1 ]; then
-  sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores+1))'"/g' /etc/makepkg.conf;
-  sed -i 's/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T '"$numberofcores"' -z -)/g' /etc/makepkg.conf
-fi
+  if [ $numberofcores -gt 1 ]; then
+    sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores + 1))'"/g' /etc/makepkg.conf
+    sed -i 's/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T '"$numberofcores"' -z -)/g' /etc/makepkg.conf
+  fi
 fi
 
 ##################################################################################################################
 printf_head "Configuring the system"
 ##################################################################################################################
-run_external yum clean all 
+run_external yum clean all
 run_external yum update -q -y --skip-broken
 install_pkg vnstat
 system_service_enable vnstat
-install_pkg net-tools 
+install_pkg net-tools
 install_pkg wget
 install_pkg curl
 install_pkg git
@@ -100,15 +140,15 @@ install_pkg unzip
 run_external rm -Rf /tmp/dotfiles
 run_external timedatectl set-timezone America/New_York
 install_pkg cronie-noanacron
-for rpms in $(echo cronie-anacron sendmail sendmail-cf); do 
-  rpm -ev --nodeps $rpms &>/dev/null 
+for rpms in $(echo cronie-anacron sendmail sendmail-cf); do
+  rpm -ev --nodeps $rpms &>/dev/null
 done
 run_external rm -Rf /root/anaconda-ks.cfg /var/log/anaconda
 if [ "$(hostname -s)" != "pbx" ]; then
   run_external rm -Rf /etc/yum.repos.d/*
   grab_remote_file https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo -o /etc/yum.repos.d/casjay.repo
 fi
-run_external yum clean all 
+run_external yum clean all
 run_external yum update -q -y --skip-broken
 run_grub
 
@@ -806,13 +846,13 @@ devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$(hostname -s)
 devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" {} \;
 devnull #rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
 devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
-devnull mkdir -p /etc/rsync.d /var/log/named && 
-devnull chown -Rf named:named /etc/named* /var/named /var/log/named
+devnull mkdir -p /etc/rsync.d /var/log/named &&
+  devnull chown -Rf named:named /etc/named* /var/named /var/log/named
 devnull chown -Rf apache:apache /var/www /usr/share/httpd
 devnull sed -i "s#myserverdomainname#$(echo $HOSTNAME)#g" /etc/sysconfig/network
 devnull sed -i "s#mydomain#$(echo $HOSTNAME | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" /etc/sysconfig/network
-devnull domainname $(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//') && 
-echo "kernel.domainname=$(domainname)" >>/etc/sysctl.conf
+devnull domainname $(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//') &&
+  echo "kernel.domainname=$(domainname)" >>/etc/sysctl.conf
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains && newaliases
@@ -825,7 +865,7 @@ system_service_disable firewalld
 system_service_disable chrony
 system_service_disable kdump
 system_service_disable iscsid.socket
-system_service_disable iscsi 
+system_service_disable iscsi
 system_service_disable iscsiuio.socket
 system_service_disable lvm2-lvmetad.socket
 system_service_disable lvm2-lvmpolld.socket
@@ -858,7 +898,7 @@ system_service_enable named
 ##################################################################################################################
 printf_head "Cleaning up"
 ##################################################################################################################
-system_service_enable httpd 
+system_service_enable httpd
 system_service_enable nginx
 echo "" >/etc/yum/pluginconf.d/subscription-manager.conf
 rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
@@ -879,12 +919,12 @@ if [[ -d /etc/letsencrypt/live/$(domainname) ]] || [[ -d /etc/letsencrypt/live/d
   cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
   cat /etc/letsencrypt/live/domain/privkey.pem >>/etc/cockpit/ws-certs.d/1-my-cert.cert
 else
-#If using self-signed certificates
+  #If using self-signed certificates
   find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
   find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
 fi
 bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
-if [ -f /var/lib/tor/hidden_service/hostname ]; then 
+if [ -f /var/lib/tor/hidden_service/hostname ]; then
   cp -Rf /var/lib/tor/hidden_service/hostname /var/www/html/tor_hostname
 fi
 chown -Rf apache:apache /var/www
@@ -894,13 +934,14 @@ history -c && history -w
 printf_info "Installer version: $(retrieve_version_file)"
 ##################################################################################################################
 mkdir -p /etc/casjaysdev/updates/versions
-echo "$VERSION" > /etc/casjaysdev/updates/versions/configs.txt
+echo "$VERSION" >/etc/casjaysdev/updates/versions/configs.txt
 chmod -Rf 664 /etc/casjaysdev/updates/versions/configs.txt
 
 ##################################################################################################################
-printf_head "Finished " ; echo ""
+printf_head "Finished "
+echo ""
 ##################################################################################################################
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-set -- 
-exit 
+set --
+exit
 # end
