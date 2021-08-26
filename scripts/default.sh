@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -x
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # @Author      : Jason
 # @Contact     : casjaysdev@casjay.net
