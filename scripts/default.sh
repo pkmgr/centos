@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-
-APPNAME="$(basename $0)"
-USER="${SUDO_USER:-${USER}}"
-HOME="${USER_HOME:-${HOME}}"
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # @Author      : Jason
 # @Contact     : casjaysdev@casjay.net
@@ -14,15 +9,15 @@ HOME="${USER_HOME:-${HOME}}"
 # @Description : Template installer for CentOS
 # @Resource    : 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+APPNAME="$(basename $0)"
+USER="${SUDO_USER:-${USER}}"
+HOME="${USER_HOME:-${HOME}}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set functions
-
 SCRIPTSFUNCTURL="${SCRIPTSFUNCTURL:-https://github.com/casjay-dotfiles/scripts/raw/main/functions}"
 SCRIPTSFUNCTDIR="${SCRIPTSFUNCTDIR:-/usr/local/share/CasjaysDev/scripts}"
 SCRIPTSFUNCTFILE="${SCRIPTSFUNCTFILE:-system-installer.bash}"
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 if [ -f "../functions/$SCRIPTSFUNCTFILE" ]; then
     . "../functions/$SCRIPTSFUNCTFILE"
 elif [ -f "$SCRIPTSFUNCTDIR/functions/$SCRIPTSFUNCTFILE" ]; then
@@ -31,7 +26,6 @@ else
     curl -LSs "$SCRIPTSFUNCTURL/$SCRIPTSFUNCTFILE" -o "/tmp/$SCRIPTSFUNCTFILE" || exit 1
     . "/tmp/$SCRIPTSFUNCTFILE"
 fi
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 system_service_exists() { if systemctl status "$1" >/dev/null 2>&1; then return 0 ; else return 1 ; fi ; setexitstatus ; set -- ;}
 system_service_enable() { if system_service_exists "$1" && systemctl status "$1" | grep -Fq enabled; then execute "systemctl enable --now -f $1" "Enabling service: $1" ; fi ; setexitstatus ; set -- ;}
@@ -57,9 +51,23 @@ fi
 ##################################################################################################################
 printf_head "Initializing the installer"
 ##################################################################################################################
+if ! cmd_exists systemmgr; then
+  grab_remote_file curl -LSs https://github.com/casjay-dotfiles/scripts/raw/main/install.sh -o /tmp/scripts-install.sh 
+  chmod 755 /tmp/scripts-install.sh
+  run_external /tmp/scripts-install.sh
+fi
+run_external systemmgr install installer
+run_external "yum clean all"
+if [ "$(hostname -s)" != "pbx" ]; then
+  run_external rm -Rf /etc/yum.repos.d/*
+  grab_remote_file https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo -o /etc/yum.repos.d/casjay.repo
+fi
+
+##################################################################################################################
 printf_info "Disabling selinux"
 ##################################################################################################################
 disable_selinux
+
 ##################################################################################################################
 printf_head "Configuring cores for compiling"
 ##################################################################################################################
@@ -75,17 +83,6 @@ fi
 ##################################################################################################################
 printf_head "Configuring the system"
 ##################################################################################################################
-if ! cmd_exists systemmgr; then
-  grab_remote_file curl -LSs https://github.com/casjay-dotfiles/scripts/raw/main/install.sh -o /tmp/scripts-install.sh 
-  chmod 755 /tmp/scripts-install.sh
-  run_external /tmp/scripts-install.sh
-fi
-run_external systemmgr install installer
-run_external "yum clean all"
-if [ "$(hostname -s)" != "pbx" ]; then
-  run_external rm -Rf /etc/yum.repos.d/*
-  grab_remote_file https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo -o /etc/yum.repos.d/casjay.repo
-fi
 run_external yum clean all 
 run_external yum update -q -y --skip-broken
 install_pkg vnstat
