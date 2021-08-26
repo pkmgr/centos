@@ -136,12 +136,11 @@ install_pkg nail
 install_pkg e2fsprogs
 install_pkg redhat-lsb
 install_pkg neovim
-install_pkg wget
 install_pkg unzip
 run_external rm -Rf /tmp/dotfiles
 run_external timedatectl set-timezone America/New_York
 install_pkg cronie-noanacron
-for rpms in $(echo cronie-anacron sendmail sendmail-cf); do
+for rpms in echo cronie-anacron sendmail sendmail-cf; do
   rpm -ev --nodeps $rpms &>/dev/null
 done
 run_external rm -Rf /root/anaconda-ks.cfg /var/log/anaconda
