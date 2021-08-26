@@ -308,6 +308,7 @@ install_pkg harfbuzz
 install_pkg hdparm
 install_pkg hostname
 install_pkg htop
+install_pkg httpd
 install_pkg hunspell
 install_pkg hunspell-en-US
 install_pkg hwdata
@@ -374,6 +375,7 @@ install_pkg net-tools
 install_pkg newt
 install_pkg newt-python
 install_pkg nfs-utils
+install_pkg nginx
 install_pkg nmap-ncat
 install_pkg nodejs
 install_pkg nspr
