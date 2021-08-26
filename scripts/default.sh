@@ -66,9 +66,9 @@ disable_selinux() {
   devnull setenforce 0
 }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
-grab_remote_file() { urlverify "$1" && curl -q -SLs "$*" || exit 1; }
+grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
-retrieve_version_file() { grab_remote_file https://github.com/casjay-base/centos/raw/main/version.txt | head -n1 || echo "Unknown version"; }
+retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
 run_grub() {
   printf_green "Setting up grub"
   rm -Rf /boot/*rescue*
