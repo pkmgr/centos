@@ -69,11 +69,11 @@ if [ -f /etc/casjaysdev/updates/versions/default.txt ]; then
   printf_exit "/etc/casjaysdev/updates/versions/default.txt"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
-  save_remote_file "https://github.com/casjay-dotfiles/scripts/raw/main/install.sh" "/tmp/scripts-install.sh"
-  chmod 755 /tmp/scripts-install.sh
-  run_external /tmp/scripts-install.sh
+  run_external "git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts"
+  run_external /usr/local/share/CasjaysDev/scripts/install.sh
+  run_external systemmgr --config &>/dev/null
 fi
-run_external systemmgr install installer
+run_external systemmgr install scripts
 run_external "yum clean all"
 if [ "$(hostname -s)" != "pbx" ]; then
   run_external rm -Rf /etc/yum.repos.d/*
