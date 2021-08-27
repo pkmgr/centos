@@ -29,13 +29,13 @@ fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 shift $#
 system_service_exists() {
-  systemctl status "$1" 2>&1 | grep -q "$1" && return 0 || return 1
+  systemctl status "$1" 2>&1 2>&1 | grep -q "$1" && return 0 || return 1
 }
 system_service_enable() {
-  system_service_exists "$1" && systemctl status "$1" 2>& | grep -Fq enabled && execute "systemctl enable --now -f $1" "Enabling service: $1" || return 1
+  system_service_exists "$1" && systemctl status "$1" 2>&1 | grep -Fq enabled && execute "systemctl enable --now -f $1" "Enabling service: $1" || return 1
 }
 system_service_disable() {
-  system_service_exists "$1" && systemctl status "$1" 2>& | grep -Fq disabled && execute "systemctl disable --now $1" "Disabling service: $1" || return 1
+  system_service_exists "$1" && systemctl status "$1" 2>&1 | grep -Fq disabled && execute "systemctl disable --now $1" "Disabling service: $1" || return 1
 }
 test_pkg() {
   devnull rpm -q $1 && printf_blue "$1 is installed" && return 1 || return 0
