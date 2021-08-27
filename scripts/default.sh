@@ -28,25 +28,13 @@ else
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 shift $#
-system_service_exists() {
-  systemctl status "$1" 2>&1 | grep -q "$1" && return 0 || return 1
-}
-system_service_enable() {
-  system_service_exists "$1" && systemctl status "$1" 2>&1 | grep -Fq enabled && execute "systemctl enable --now -f $1" "Enabling service: $1" || return 1
-}
-system_service_disable() {
-  system_service_exists "$1" && systemctl status "$1" 2>&1 | grep -Fq disabled && execute "systemctl disable --now $1" "Disabling service: $1" || return 1
-}
-test_pkg() {
-  devnull rpm -q $1 && printf_blue "$1 is installed" && return 1 || return 0
-}
-remove_pkg() {
-  if ! test_pkg "$1"; then execute "yum remove -q -y $*" "Removing: $*"; fi
-}
-install_pkg() {
-  if test_pkg "$1"; then execute "yum install -q -y --skip-broken $*" "Installing: $*"; fi
-}
-detect_selinux() {
+system_service_exists() { systemctl status "$1" 2>&1 | grep -iq "$1" && return 0 || return 1; }
+system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable --now $1" "Enabling service: $1" || return 1  ; }
+system_service_disable() {  systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
+test_pkg() { devnull rpm -q $1 && printf_blue "$1 is installed" && return 1 || return 0; }
+remove_pkg() { test_pkg "$1" || execute "yum remove -q -y $*" "Removing: $*"; }
+install_pkg() {  test_pkg "$1" && execute "yum install -q -y --skip-broken $*" "Installing: $*"; }
+detect_selinux() { 
   selinuxenabled
   if [ $? -ne 0 ]; then return 0; else return 1; fi
 }
