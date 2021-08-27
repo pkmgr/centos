@@ -69,7 +69,11 @@ if [ -f /etc/casjaysdev/updates/versions/default.txt ]; then
   printf_exit "/etc/casjaysdev/updates/versions/default.txt"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
-  run_external "git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts"
+  if [[ -d "/usr/local/share/CasjaysDev/scripts" ]]; then
+    run_external "git -C https://github.com/casjay-dotfiles/scripts pull"
+  else
+    run_external "git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts"
+  fi
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
   run_external systemmgr --config &>/dev/null
 fi
