@@ -828,7 +828,7 @@ devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$(hostname -f)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$(hostname -s)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" {} \;
-devnull #rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
+#devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
 devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
 devnull mkdir -p /etc/rsync.d /var/log/named &&
   devnull chown -Rf named:named /etc/named* /var/named /var/log/named
@@ -910,6 +910,10 @@ fi
 bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
 if [ -f /var/lib/tor/hidden_service/hostname ]; then
   cp -Rf /var/lib/tor/hidden_service/hostname /var/www/html/tor_hostname
+fi
+if [ "$(hostname -s)" != "pbx" ]; then
+  rm_repo_files
+  save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
 fi
 chown -Rf apache:apache /var/www
 history -c && history -w
