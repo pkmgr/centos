@@ -30,7 +30,7 @@ fi
 system_service_exists() { systemctl status "$1" 2>&1 | grep -iq "$1" && return 0 || return 1; }
 system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable $1" "Enabling service: $1" || return 1  ; }
 system_service_disable() {  systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
-test_pkg() { devnull rpm -q $1 && printf_blue "$1 is installed" && return 1 || return 0; }
+test_pkg() { devnull rpm -q $1 && printf_blue "[ ✔ ] $1 is installed" && return 1 || return 0; }
 remove_pkg() { test_pkg "$1" || execute "yum remove -q -y $*" "Removing: $*"; }
 install_pkg() {  test_pkg "$1" && execute "yum install -q -y --skip-broken $*" "Installing: $*"; }
 detect_selinux() { 
