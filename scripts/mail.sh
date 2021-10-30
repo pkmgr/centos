@@ -29,12 +29,12 @@ fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 shift $#
 system_service_exists() { systemctl status "$1" 2>&1 | grep -iq "$1" && return 0 || return 1; }
-system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable $1" "Enabling service: $1" || return 1  ; }
-system_service_disable() {  systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
+system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable $1" "Enabling service: $1" || return 1; }
+system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
 test_pkg() { devnull rpm -q $1 && printf_blue "$1 is installed" && return 1 || return 0; }
 remove_pkg() { test_pkg "$1" || execute "yum remove -q -y $*" "Removing: $*"; }
-install_pkg() {  test_pkg "$1" && execute "yum install -q -y --skip-broken $*" "Installing: $*"; }
-detect_selinux() { 
+install_pkg() { test_pkg "$1" && execute "yum install -q -y --skip-broken $*" "Installing: $*"; }
+detect_selinux() {
   selinuxenabled
   if [ $? -ne 0 ]; then return 0; else return 1; fi
 }
@@ -42,6 +42,7 @@ disable_selinux() {
   selinuxenabled
   devnull setenforce 0
 }
+rm_repo_files() { printf_green "Removing files from /etc/yum.repos.d" && rm -Rf /etc/yum.repos.d/*; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
@@ -58,7 +59,9 @@ run_post() {
   setexitstatus
   set --
 }
-
+##################################################################################################################
+clear
+ARGS="$*" && shift $#
 ##################################################################################################################
 printf_head "Initializing the installer"
 ##################################################################################################################
@@ -80,7 +83,7 @@ fi
 run_external systemmgr install scripts
 run_external "yum clean all"
 if [ "$(hostname -s)" != "pbx" ]; then
-  run_external rm -Rf /etc/yum.repos.d/*
+  rm_repo_files
   save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
 fi
 
@@ -125,7 +128,7 @@ for rpms in $(echo cronie-anacron sendmail sendmail-cf); do
 done
 run_external rm -Rf /root/anaconda-ks.cfg /var/log/anaconda
 if [ "$(hostname -s)" != "pbx" ]; then
-  run_external rm -Rf /etc/yum.repos.d/*
+  rm_repo_files
   save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
 fi
 run_external yum clean all
@@ -853,6 +856,10 @@ fi
 bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
 if [ -f /var/lib/tor/hidden_service/hostname ]; then
   cp -Rf /var/lib/tor/hidden_service/hostname /var/www/html/tor_hostname
+fi
+if [ "$(hostname -s)" != "pbx" ]; then
+  rm_repo_files
+  save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
 fi
 chown -Rf apache:apache /var/www
 history -c && history -w
