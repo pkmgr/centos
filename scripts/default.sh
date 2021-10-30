@@ -41,7 +41,7 @@ disable_selinux() {
   selinuxenabled
   devnull setenforce 0
 }
-rm_repo_files() {  printf_green "Removing files from /etc/yum.repos.d" && rm -Rf /etc/yum.repos.d/*; }
+rm_repo_files() {  printf_green "Removing files from /etc/yum.repos.d" && rm -Rf /etc/*; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
@@ -127,7 +127,7 @@ for rpms in echo cronie-anacron sendmail sendmail-cf; do
 done
 run_external rm -Rf /root/anaconda-ks.cfg /var/log/anaconda
 if [ "$(hostname -s)" != "pbx" ]; then
-  run_external rm -Rf /etc/yum.repos.d/*
+  rm_repo_files
   save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
 fi
 run_external yum clean all
