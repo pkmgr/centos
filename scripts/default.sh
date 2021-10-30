@@ -27,7 +27,6 @@ else
   . "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-shift $#
 system_service_exists() { systemctl status "$1" 2>&1 | grep -iq "$1" && return 0 || return 1; }
 system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable $1" "Enabling service: $1" || return 1  ; }
 system_service_disable() {  systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
@@ -58,7 +57,9 @@ run_post() {
   setexitstatus
   set --
 }
-
+##################################################################################################################
+clear
+ARGS="$*" && shift $#
 ##################################################################################################################
 printf_head "Initializing the installer"
 ##################################################################################################################
