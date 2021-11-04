@@ -1886,7 +1886,7 @@ devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
 if devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains; then
-  newaliases &>/dev/null || newaliases.postfix &>/dev/null
+  newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 fi
 
 ##################################################################################################################
