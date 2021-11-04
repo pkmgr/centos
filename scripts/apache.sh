@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version       : 202110300047-git
+##@Version       : 202111041659-git
 # @Author        : Jason Hempstead
 # @Contact       : jason@casjaysdev.com
 # @License       : WTFPL
 # @ReadME        : apache.sh --help
 # @Copyright     : Copyright: (c) 2021 Jason Hempstead, Casjays Developments
-# @Created       : Saturday, Oct 30, 2021 00:47 EDT
+# @Created       : Thursday, Nov 04, 2021 16:59 EDT
 # @File          : apache.sh
-# @Description   : apache httpd server installer for CentOS
+# @Description   : apache installer for centos/rhel
 # @TODO          :
 # @Other         :
 # @Resource      :
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-APPNAME="$(basename $0)"
+APPNAME="$(basename "$0")"
+VERSION="202111041659-git"
 USER="${SUDO_USER:-${USER}}"
 HOME="${USER_HOME:-${HOME}}"
+SRC_DIR="${BASH_SOURCE%/*}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set bash options
 if [[ "$1" == "--debug" ]]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
@@ -35,34 +36,52 @@ else
   . "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-builtin type -P yum || builtin type -P dnf || printf_exit "This is intended for yum based systems"
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[[ "$1" = "--help" ]] && printf_exit "development installer for CentOS"
+[[ "$1" == "--help" ]] && printf_exit "${GREEN}apache installer for centos/rhel"
+cat /etc/*-release | grep 'ID_LIKE=' | grep -E 'rhel|centos' &>/dev/null && true || printf_exit "This installer is meant to be run on a CentOS based system"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 system_service_exists() { systemctl status "$1" 2>&1 | grep -iq "$1" && return 0 || return 1; }
 system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable $1" "Enabling service: $1" || return 1; }
 system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
-test_pkg() { devnull rpm -q $1 && printf_blue "$1 is installed" && return 1 || return 0; }
+test_pkg() { devnull rpm -q "$1" && printf_blue "[ ✔ ] "$1" is already installed" && return 1 || return 0; }
 remove_pkg() { test_pkg "$1" || execute "yum remove -q -y $*" "Removing: $*"; }
 install_pkg() { test_pkg "$1" && execute "yum install -q -y --skip-broken $*" "Installing: $*"; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 detect_selinux() {
   selinuxenabled
   if [ $? -ne 0 ]; then return 0; else return 1; fi
 }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 disable_selinux() {
   selinuxenabled
   devnull setenforce 0
 }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 rm_repo_files() { printf_green "Removing files from /etc/yum.repos.d" && rm -Rf /etc/yum.repos.d/*; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
 retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+retrieve_repo_file() {
+  local RELEASE_VER RELEASE_FILE IFS
+  RELEASE_VER="$(cat /etc/*-release | grep 'VERSION_ID=' | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}')"
+  if [[ "$RELEASE_VER" -ge "8" ]]; then
+    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh8.repo"
+  elif [[ "$RELEASE_VER" -lt "8" ]]; then
+    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
+  else
+    printf_red "Can not determine OS release version"
+    exit 1
+  fi
+  save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
   printf_green "Setting up grub"
   rm -Rf /boot/*rescue*
   devnull grub2-mkconfig -o /boot/grub2/grub.cfg
 }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_post() {
   local e="$1"
   local m="$(echo $1 | sed 's#devnull ##g')"
@@ -90,12 +109,12 @@ if ! builtin type -P systemmgr &>/dev/null; then
   fi
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
   run_external systemmgr --config &>/dev/null
+  run_external systemmgr install scripts
+  run_external "yum clean all"
 fi
-run_external systemmgr install scripts
-run_external "yum clean all"
 if [ "$(hostname -s)" != "pbx" ]; then
   rm_repo_files
-  save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
+  retrieve_repo_file
 fi
 
 ##################################################################################################################
@@ -140,7 +159,7 @@ done
 run_external rm -Rf /root/anaconda-ks.cfg /var/log/anaconda
 if [ "$(hostname -s)" != "pbx" ]; then
   rm_repo_files
-  save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
+  retrieve_repo_file
 fi
 run_external yum clean all
 run_external yum update -q -y --skip-broken
@@ -936,7 +955,7 @@ if [ -f /var/lib/tor/hidden_service/hostname ]; then
 fi
 if [ "$(hostname -s)" != "pbx" ]; then
   rm_repo_files
-  save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
+  retrieve_repo_file
 fi
 chown -Rf apache:apache /var/www
 history -c && history -w

@@ -1,17 +1,26 @@
 #!/usr/bin/env bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# @Author      : Jason
-# @Contact     : casjaysdev@casjay.net
-# @File        : template.sh
-# @Created     : Sat, Aug 15, 2020, 22:31 EST
-# @License     : WTFPL
-# @Copyright   : Copyright (c) CasjaysDev
-# @Description : Template installer for CentOS
-# @Resource    :
+##@Version       : 202111041659-git
+# @Author        : Jason Hempstead
+# @Contact       : jason@casjaysdev.com
+# @License       : WTFPL
+# @ReadME        : default.sh --help
+# @Copyright     : Copyright: (c) 2021 Jason Hempstead, Casjays Developments
+# @Created       : Thursday, Nov 04, 2021 16:59 EDT
+# @File          : default.sh
+# @Description   : default installer for centos/rhel
+# @TODO          :
+# @Other         :
+# @Resource      :
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-APPNAME="$(basename $0)"
+APPNAME="$(basename "$0")"
+VERSION="202111041659-git"
 USER="${SUDO_USER:-${USER}}"
 HOME="${USER_HOME:-${HOME}}"
+SRC_DIR="${BASH_SOURCE%/*}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Set bash options
+if [[ "$1" == "--debug" ]]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set functions
 SCRIPTSFUNCTURL="${SCRIPTSFUNCTURL:-https://github.com/casjay-dotfiles/scripts/raw/main/functions}"
@@ -27,12 +36,13 @@ else
   . "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+[[ "$1" == "--help" ]] && printf_exit "${GREEN}defaul installer for centos/rhel"
 cat /etc/*-release | grep 'ID_LIKE=' | grep -E 'rhel|centos' &>/dev/null && true || printf_exit "This installer is meant to be run on a CentOS based system"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 system_service_exists() { systemctl status "$1" 2>&1 | grep -iq "$1" && return 0 || return 1; }
 system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable $1" "Enabling service: $1" || return 1; }
 system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
-test_pkg() { devnull rpm -q $1 && printf_blue "[ ✔ ] $1 is installed" && return 1 || return 0; }
+test_pkg() { devnull rpm -q "$1" && printf_blue "[ ✔ ] "$1" is already installed" && return 1 || return 0; }
 remove_pkg() { test_pkg "$1" || execute "yum remove -q -y $*" "Removing: $*"; }
 install_pkg() { test_pkg "$1" && execute "yum install -q -y --skip-broken $*" "Installing: $*"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -55,7 +65,7 @@ retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/cento
 retrieve_repo_file() {
   local RELEASE_VER RELEASE_FILE IFS
   RELEASE_VER="$(cat /etc/*-release | grep 'VERSION_ID=' | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}')"
-  if [[ "$RELEASE_VER" -ge "8" ]]; then 
+  if [[ "$RELEASE_VER" -ge "8" ]]; then
     RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh8.repo"
   elif [[ "$RELEASE_VER" -lt "8" ]]; then
     RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
@@ -99,9 +109,9 @@ if ! builtin type -P systemmgr &>/dev/null; then
   fi
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
   run_external systemmgr --config &>/dev/null
+  run_external systemmgr install scripts
+  run_external "yum clean all"
 fi
-run_external systemmgr install scripts
-run_external "yum clean all"
 if [ "$(hostname -s)" != "pbx" ]; then
   rm_repo_files
   retrieve_repo_file
