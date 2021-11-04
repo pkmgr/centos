@@ -56,7 +56,7 @@ retrieve_repo_file() {
   local RELEASE_VER RELEASE_FILE IFS
   RELEASE_VER="$(cat /etc/*-release | grep 'VERSION_ID=' | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}')"
   if [[ "$RELEASE_VER" -ge "8" ]]; then 
-    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rl.repo"
+    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh8.repo"
   elif [[ "$RELEASE_VER" -lt "8" ]]; then
     RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
   else
