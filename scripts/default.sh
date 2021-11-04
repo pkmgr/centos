@@ -870,8 +870,10 @@ devnull domainname $(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's
   echo "kernel.domainname=$(domainname)" >>/etc/sysctl.conf
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
-devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains && newaliases
 devnull chattr +i /etc/resolv.conf
+if devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains; then
+  newaliases &>/dev/null || newaliases.postfix &>/dev/null
+fi
 
 ##################################################################################################################
 printf_head "Disabling services"
