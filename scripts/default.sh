@@ -51,8 +51,8 @@ save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null 
 retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 retrieve_repo_file() {
-  local RELEASE_VER RELEASE_FILE
-  RELEASE_VER="$(cat /etc/*-release | grep 'VERSION_ID=' | awk -F '=' '{print $2}' | sed 's#"##g')"
+  local RELEASE_VER RELEASE_FILE IFS
+  RELEASE_VER="$(cat /etc/*-release | grep 'VERSION_ID=' | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}')"
   if [[ "$RELEASE_VER" -ge "8" ]]; then 
     RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rl.repo"
   elif [[ "$RELEASE_VER" -lt "8" ]]; then
