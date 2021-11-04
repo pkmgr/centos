@@ -33,24 +33,43 @@ system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && exe
 test_pkg() { devnull rpm -q $1 && printf_blue "[ ✔ ] $1 is installed" && return 1 || return 0; }
 remove_pkg() { test_pkg "$1" || execute "yum remove -q -y $*" "Removing: $*"; }
 install_pkg() { test_pkg "$1" && execute "yum install -q -y --skip-broken $*" "Installing: $*"; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 detect_selinux() {
   selinuxenabled
   if [ $? -ne 0 ]; then return 0; else return 1; fi
 }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 disable_selinux() {
   selinuxenabled
   devnull setenforce 0
 }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 rm_repo_files() { printf_green "Removing files from /etc/yum.repos.d" && rm -Rf /etc/yum.repos.d/*; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
 retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+retrieve_repo_file() {
+  local RELEASE_VER RELEASE_FILE
+  RELEASE_VER="$(cat /etc/*-release | grep 'VERSION_ID=' | awk -F '=' '{print $2}' | sed 's#"##g')"
+  if [[ "$RELEASE_VER" -ge "8" ]]; then 
+    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rl.repo"
+  elif [[ "$RELEASE_VER" -lt "8" ]]; then
+    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
+  else
+    printf_red "Can not determine OS release version"
+    exit 1
+  fi
+  save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
   printf_green "Setting up grub"
   rm -Rf /boot/*rescue*
   devnull grub2-mkconfig -o /boot/grub2/grub.cfg
 }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_post() {
   local e="$1"
   local m="$(echo $1 | sed 's#devnull ##g')"
@@ -83,7 +102,7 @@ run_external systemmgr install scripts
 run_external "yum clean all"
 if [ "$(hostname -s)" != "pbx" ]; then
   rm_repo_files
-  save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
+  retrieve_repo_file
 fi
 
 ##################################################################################################################
@@ -128,7 +147,7 @@ done
 run_external rm -Rf /root/anaconda-ks.cfg /var/log/anaconda
 if [ "$(hostname -s)" != "pbx" ]; then
   rm_repo_files
-  save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
+  retrieve_repo_file
 fi
 run_external yum clean all
 run_external yum update -q -y --skip-broken
@@ -913,7 +932,7 @@ if [ -f /var/lib/tor/hidden_service/hostname ]; then
 fi
 if [ "$(hostname -s)" != "pbx" ]; then
   rm_repo_files
-  save_remote_file "https://github.com/rpm-devel/sources/raw/main/docs/ZREPO/RHEL/rhel/casjay.repo" "/etc/yum.repos.d/casjay.repo"
+  retrieve_repo_file
 fi
 chown -Rf apache:apache /var/www
 history -c && history -w
