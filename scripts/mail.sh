@@ -18,6 +18,7 @@ VERSION="202111041659-git"
 USER="${SUDO_USER:-${USER}}"
 HOME="${USER_HOME:-${HOME}}"
 SRC_DIR="${BASH_SOURCE%/*}"
+SCRIPT_DESCRIBE="email server"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set bash options
 if [[ "$1" == "--debug" ]]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
@@ -45,7 +46,12 @@ system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && exe
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 test_pkg() {
   for pkg in "$@"; do
-    devnull rpm -q "$pkg" && printf_blue "[ ✔ ] $pkg is already installed" && return 1 || return 0
+    if rpm -q "$pkg" &>/dev/null; then
+      printf_blue "[ ✔ ] $pkg is already installed"
+      return 1
+    else
+      return 0
+    fi
   done
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -193,7 +199,7 @@ run_external yum update -q -y --skip-broken
 run_grub
 
 ##################################################################################################################
-printf_head "Installing the packages for my email server"
+printf_head "Installing the packages for $SCRIPT_DESCRIBE"
 ##################################################################################################################
 install_pkg acl
 install_pkg aic94xx-firmware
