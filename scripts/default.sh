@@ -36,15 +36,31 @@ else
   . "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[[ "$1" == "--help" ]] && printf_exit "${GREEN}defaul installer for centos/rhel"
+[[ "$1" == "--help" ]] && printf_exit "${GREEN}apache installer for centos/rhel"
 cat /etc/*-release | grep 'ID_LIKE=' | grep -E 'rhel|centos' &>/dev/null && true || printf_exit "This installer is meant to be run on a CentOS based system"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 system_service_exists() { systemctl status "$1" 2>&1 | grep -iq "$1" && return 0 || return 1; }
 system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable $1" "Enabling service: $1" || return 1; }
 system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
-test_pkg() { devnull rpm -q "$1" && printf_blue "[ ✔ ] "$1" is already installed" && return 1 || return 0; }
-remove_pkg() { test_pkg "$1" || execute "yum remove -q -y $*" "Removing: $*"; }
-install_pkg() { test_pkg "$1" && execute "yum install -q -y --skip-broken $*" "Installing: $*"; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+test_pkg() {
+  for pkg in "$@"; do
+    devnull rpm -q "$pkg" && printf_blue "[ ✔ ] $pkg is already installed" && return 1 || return 0
+  done
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+remove_pkg() {
+  test_pkg "$*" &>/dev/null || execute "yum remove -q -y $*" "Removing: $*"
+  test_pkg "$*" &>/dev/null || return 0
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+install_pkg() {
+  test_pkg "$*" && if execute "yum install -q -y --skip-broken $*" "Installing: $*"; then
+    return 0
+  else
+    return 1
+  fi
+}
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 detect_selinux() {
   selinuxenabled
@@ -83,8 +99,8 @@ run_grub() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_post() {
-  local e="$1"
-  local m="$(echo $1 | sed 's#devnull ##g')"
+  local e="$*"
+  local m="${e//devnull /}"
   execute "$e" "executing: $m"
   setexitstatus
   set --
@@ -118,7 +134,7 @@ if [ "$(hostname -s)" != "pbx" ]; then
 fi
 
 ##################################################################################################################
-printf_info "Disabling selinux"
+printf_head "Disabling selinux"
 ##################################################################################################################
 disable_selinux
 
@@ -126,7 +142,7 @@ disable_selinux
 printf_head "Configuring cores for compiling"
 ##################################################################################################################
 numberofcores=$(grep -c ^processor /proc/cpuinfo)
-printf_info "Total cores avaliable: $numberofcores"
+printf_yellow "Total cores avaliable: $numberofcores"
 if [ -f /etc/makepkg.conf ]; then
   if [ $numberofcores -gt 1 ]; then
     sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores + 1))'"/g' /etc/makepkg.conf
