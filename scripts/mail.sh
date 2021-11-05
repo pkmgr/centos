@@ -75,8 +75,12 @@ detect_selinux() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 disable_selinux() {
-  selinuxenabled
-  devnull setenforce 0
+  if selinuxenabled; then
+    printf_blue "Disabling selinux"
+    devnull setenforce 0
+  else
+    printf_green "selinux is already disabled"
+  fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 rm_repo_files() { printf_green "Removing files from /etc/yum.repos.d" && rm -Rf /etc/yum.repos.d/*; }
