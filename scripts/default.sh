@@ -887,8 +887,8 @@ devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$(hostname -s)
 devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" {} \;
 #devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
 devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
-devnull mkdir -p /etc/rsync.d /var/log/named &&
-  devnull chown -Rf named:named /etc/named* /var/named /var/log/named
+devnull mkdir -p /etc/rsync.d /var/log/named
+devnull chown -Rf named:named /etc/named* /var/named /var/log/named
 devnull chown -Rf apache:apache /var/www /usr/share/httpd
 devnull sed -i "s#myserverdomainname#$(echo $HOSTNAME)#g" /etc/sysconfig/network
 devnull sed -i "s#mydomain#$(echo $HOSTNAME | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" /etc/sysconfig/network
