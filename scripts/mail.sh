@@ -89,6 +89,7 @@ disable_selinux() {
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ssh_key() { save_remote_file "https://github.com/casjay.keys" "/root/.ssh/authorized_keys"; }
 rm_repo_files() { printf_green "Removing files from /etc/yum.repos.d" && rm -Rf /etc/yum.repos.d/*; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
@@ -149,7 +150,7 @@ if [ "$(hostname -s)" != "pbx" ]; then
   rm_repo_files
   retrieve_repo_file
 fi
-
+ssh_key
 ##################################################################################################################
 printf_head "Disabling selinux"
 ##################################################################################################################
