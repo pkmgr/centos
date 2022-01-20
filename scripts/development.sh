@@ -139,6 +139,13 @@ run_post() {
   setexitstatus
   set --
 }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+fix_network_device_name() {
+  local device=""
+  device="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -n1 | grep '^' || echo 'eth0')"
+  printf_green "Setting network device name to $device in $1"
+  find "$1" -type f -exec sed -i 's|eth0|'$device'|g' {} +
+}
 ##################################################################################################################
 clear
 ARGS="$*" && shift $#
