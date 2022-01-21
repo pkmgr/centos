@@ -117,14 +117,17 @@ retrieve_repo_file() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
+  local grub_cnf grub2_cnf grub_bin grub2_bin
   printf_green "Setting up grub"
-  local grub_cnf="/boot/grub/grub.cfg"
-  local grub2_cnf="/boot/grub2/grub.cfg"
+  grub_cnf="/boot/grub/grub.cfg"
+  grub2_cnf="/boot/grub2/grub.cfg"
+  grub_bin="$(builtin type -P grub-mkconfig 2>/dev/null || false)"
+  grub2_bin="$(builtin type -P grub2-mkconfig 2>/dev/null || false)"
   rm -Rf /boot/*rescue*
-  if type -P grub2-mkconfig &>/dev/null && [[ -f "$grub2_cnf" ]]; then
+  if [ -f "$grub2_bin" ] && [[ -f "$grub2_cnf" ]]; then
     devnull grub2-mkconfig -o "$grub2_cnf" &&
-      printf_green "Updated $grub2_cnf"
-    printf_return "Failed to update $grub2_cnf"
+      printf_green "Updated $grub2_cnf" ||
+      printf_return "Failed to update $grub2_cnf"
   elif type -P grub-mkconfig &>/dev/null && [[ -f "$grub_cnf" ]]; then
     devnull grub-mkconfig -o "$grub_cnf" &&
       printf_green "Updated $grub_cnf" ||
