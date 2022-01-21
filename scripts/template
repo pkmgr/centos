@@ -4,11 +4,11 @@
 # @Author        : Jason Hempstead
 # @Contact       : jason@casjaysdev.com
 # @License       : WTFPL
-# @ReadME        : template.sh --help
+# @ReadME        : apache.sh --help
 # @Copyright     : Copyright: (c) 2021 Jason Hempstead, Casjays Developments
 # @Created       : Thursday, Nov 04, 2021 16:59 EDT
-# @File          : template.sh
-# @Description   : template installer for centos/rhel
+# @File          : apache.sh
+# @Description   : apache installer for centos/rhel
 # @TODO          :
 # @Other         :
 # @Resource      :
@@ -18,7 +18,7 @@ VERSION="202111041659-git"
 USER="${SUDO_USER:-${USER}}"
 HOME="${USER_HOME:-${HOME}}"
 SRC_DIR="${BASH_SOURCE%/*}"
-SCRIPT_DESCRIBE="template"
+SCRIPT_DESCRIBE="apache webserver"
 SCRIPT_OS="centos"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -121,11 +121,11 @@ run_grub() {
   local grub_cnf="/boot/grub/grub.cfg"
   local grub2_cnf="/boot/grub2/grub.cfg"
   rm -Rf /boot/*rescue*
-  if cmd_exists grub2-mkconfig && [[ -f "$grub2_cnf" ]]; then
+  if type -P grub2-mkconfig &>/dev/null && [[ -f "$grub2_cnf" ]]; then
     devnull grub2-mkconfig -o "$grub2_cnf" &&
       printf_green "Updated $grub2_cnf"
     printf_return "Failed to update $grub2_cnf"
-  elif cmd_exists grub-mkconfig && [[ -f "$grub_cnf" ]]; then
+  elif type -P grub-mkconfig &>/dev/null && [[ -f "$grub_cnf" ]]; then
     devnull grub-mkconfig -o "$grub_cnf" &&
       printf_green "Updated $grub_cnf" ||
       printf_return "Failed to update $grub_cnf"
@@ -230,7 +230,7 @@ run_grub
 ##################################################################################################################
 printf_head "Installing the packages for $SCRIPT_DESCRIBE"
 ##################################################################################################################
-install_pkg rpm
+install_pkg centos-release
 
 ##################################################################################################################
 printf_head "Fixing packages"
@@ -241,105 +241,25 @@ rm -Rf /etc/named* /var/named/* /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /va
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
-devnull git clone -q https://github.com/phpsysinfo/phpsysinfo /var/www/html/sysinfo
-devnull git clone -q https://github.com/casjay-base/centos /tmp/configs
-devnull find /tmp/configs -type f -iname "*.sh" -exec chmod 755 {} \;
-devnull find /tmp/configs -type f -iname "*.pl" -exec chmod 755 {} \;
-devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$(hostname -f)#g" {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$(hostname -s)#g" {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" {} \;
-devnull #rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
-devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
-devnull mkdir -p /etc/rsync.d /var/log/named &&
-  devnull chown -Rf named:named /etc/named* /var/named /var/log/named
-devnull chown -Rf apache:apache /var/www /usr/share/httpd
-devnull sed -i "s#myserverdomainname#$(echo $HOSTNAME)#g" /etc/sysconfig/network
-devnull sed -i "s#mydomain#$(echo $HOSTNAME | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" /etc/sysconfig/network
-devnull domainname $(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//') &&
-  echo "kernel.domainname=$(domainname)" >>/etc/sysctl.conf
-devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
-devnull touch /etc/postfix/mydomains.pcre
-devnull chattr +i /etc/resolv.conf
-if devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains; then
-  newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
-fi
 
 ##################################################################################################################
 printf_head "Disabling services"
 ##################################################################################################################
-system_service_disable firewalld
-system_service_disable chrony
 system_service_disable kdump
-system_service_disable iscsid.socket
-system_service_disable iscsi
-system_service_disable iscsiuio.socket
-system_service_disable lvm2-lvmetad.socket
-system_service_disable lvm2-lvmpolld.socket
-system_service_disable lvm2-monitor
-system_service_disable mdmonitor
-system_service_disable fail2ban
-system_service_disable shorewall
-system_service_disable shorewall6
-system_service_disable dhcpd
-system_service_disable dhcpd6
-system_service_disable radvd
 
 ##################################################################################################################
 printf_head "Enabling services"
 ##################################################################################################################
 system_service_enable sshd
-system_service_enable tor
-system_service_enable munin-node
 system_service_enable cockpit
 system_service_enable postfix
 system_service_enable uptimed
-system_service_enable php-fpm
-system_service_enable proftpd
-system_service_enable rsyslog
-system_service_enable ntpd
-system_service_enable snmpd
 system_service_enable cockpit.socket
-system_service_enable named
-system_service_enable httpd
-system_service_enable nginx
 
 ##################################################################################################################
 printf_head "Cleaning up"
 ##################################################################################################################
-echo "" >/etc/yum/pluginconf.d/subscription-manager.conf
-rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
-/root/bin/changeip.sh >/dev/null 2>&1
-mkdir -p /mnt/backups /var/www/html/.well-known /etc/letsencrypt/live
-echo "" >>/etc/fstab
-#echo "10.0.254.1:/mnt/Volume_1/backups         /mnt/backups                 nfs defaults,rw 0 0" >> /etc/fstab
-#echo "10.0.254.1:/var/www/html/.well-known     /var/www/html/.well-known    nfs defaults,rw 0 0" >> /etc/fstab
-#echo "10.0.254.1:/etc/letsencrypt              /etc/letsencrypt             nfs defaults,rw 0 0" >> /etc/fstab
-#mount -a
-update-ca-trust && update-ca-trust extract
-#if using letsencrypt certificates
-chmod 600 /etc/named/certbot-update.conf
-if [[ -d /etc/letsencrypt/live/$(domainname) ]] || [[ -d /etc/letsencrypt/live/domain ]]; then
-  ln -s /etc/letsencrypt/live/$(domainname) /etc/letsencrypt/live/domain
-  find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
-  find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
-  cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
-  cat /etc/letsencrypt/live/domain/privkey.pem >>/etc/cockpit/ws-certs.d/1-my-cert.cert
-else
-  #If using self-signed certificates
-  find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
-  find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
-fi
-bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
-if [ -f /var/lib/tor/hidden_service/hostname ]; then
-  cp -Rf /var/lib/tor/hidden_service/hostname /var/www/html/tor_hostname
-fi
-if [ "$(hostname -s)" != "pbx" ]; then
-  rm_repo_files
-  retrieve_repo_file
-fi
-chown -Rf apache:apache /var/www
-history -c && history -w
+history -c && history -w && history -r && history -w
 
 ##################################################################################################################
 printf_info "Installer version: $(retrieve_version_file)"

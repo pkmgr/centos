@@ -121,11 +121,11 @@ run_grub() {
   local grub_cnf="/boot/grub/grub.cfg"
   local grub2_cnf="/boot/grub2/grub.cfg"
   rm -Rf /boot/*rescue*
-  if cmd_exists grub2-mkconfig && [[ -f "$grub2_cnf" ]]; then
+  if type -P grub2-mkconfig &>/dev/null && [[ -f "$grub2_cnf" ]]; then
     devnull grub2-mkconfig -o "$grub2_cnf" &&
       printf_green "Updated $grub2_cnf"
     printf_return "Failed to update $grub2_cnf"
-  elif cmd_exists grub-mkconfig && [[ -f "$grub_cnf" ]]; then
+  elif type -P grub-mkconfig &>/dev/null && [[ -f "$grub_cnf" ]]; then
     devnull grub-mkconfig -o "$grub_cnf" &&
       printf_green "Updated $grub_cnf" ||
       printf_return "Failed to update $grub_cnf"
