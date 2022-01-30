@@ -860,6 +860,19 @@ install_pkg yum-plugin-fastestmirror
 install_pkg yum-utils
 install_pkg zip
 install_pkg zlib
+install_pkg httpd
+install_pkg httpd-filesystem
+install_pkg httpd-tools
+install_pkg http-parser
+install_pkg mod_fcgid
+install_pkg mod_geoip
+install_pkg mod_http2
+install_pkg mod_maxminddb
+install_pkg mod_perl
+install_pkg mod_ssl
+install_pkg mod_wsgi
+install_pkg mod_proxy_html
+install_pkg mod_proxy_uwsgi
 
 ##################################################################################################################
 printf_head "Fixing packages"
@@ -892,6 +905,7 @@ devnull chattr +i /etc/resolv.conf
 if devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains; then
   newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 fi
+sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh)"
 
 run_post "dfmgr install misc"
 run_post "dfmgr install bash"
