@@ -163,7 +163,7 @@ if [ -f /etc/casjaysdev/updates/versions/default.txt ]; then
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
   if [[ -d "/usr/local/share/CasjaysDev/scripts" ]]; then
-    run_external "git -C https://github.com/casjay-dotfiles/scripts pull"
+    run_external "git -C /usr/local/share/CasjaysDev/scripts pull"
   else
     run_external "git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts"
   fi
