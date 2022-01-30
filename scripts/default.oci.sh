@@ -154,7 +154,7 @@ if [ -f /etc/casjaysdev/updates/versions/default.txt ]; then
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
   if [[ -d "/usr/local/share/CasjaysDev/scripts" ]]; then
-    run_external "git -C https://github.com/casjay-dotfiles/scripts pull"
+    run_external "git -C /usr/local/share/CasjaysDev/scripts pull"
   else
     run_external "git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts"
   fi
@@ -893,7 +893,8 @@ if devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/vi
   newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 fi
 
-run_post "dfmgr install bash misc"
+run_post "dfmgr install misc"
+run_post "dfmgr install bash"
 ##################################################################################################################
 printf_head "Disabling services"
 ##################################################################################################################
