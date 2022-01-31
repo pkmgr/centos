@@ -96,7 +96,7 @@ ssh_key() {
   return 0
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-rm_repo_files() { printf_green "Removing files from /etc/yum.repos.d" && rm -Rf /etc/yum.repos.d/*; }
+rm_repo_files() { return; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
@@ -259,9 +259,9 @@ install_pkg byobu
 install_pkg bzip2
 install_pkg bzip2-libs
 install_pkg ca-certificates
-install_pkg centos-indexhtml
-install_pkg centos-logos
-install_pkg centos-release
+install_pkg rocky-indexhtml
+install_pkg rocky-logos
+install_pkg rocky-release
 install_pkg certbot
 install_pkg checkpolicy
 install_pkg chkconfig
