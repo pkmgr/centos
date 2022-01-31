@@ -4,11 +4,11 @@
 # @Author        : Jason Hempstead
 # @Contact       : jason@casjaysdev.com
 # @License       : WTFPL
-# @ReadME        : default.oci.sh --help
+# @ReadME        : server.sh --help
 # @Copyright     : Copyright: (c) 2021 Jason Hempstead, Casjays Developments
 # @Created       : Thursday, Nov 04, 2021 16:59 EDT
-# @File          : default.oci.sh
-# @Description   : default installer for oracle cloud
+# @File          : server.sh
+# @Description   : server installer for centos/rhel
 # @TODO          :
 # @Other         :
 # @Resource      :
@@ -96,7 +96,7 @@ ssh_key() {
   return 0
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-rm_repo_files() { return; }
+rm_repo_files() { printf_green "Removing files from /etc/yum.repos.d" && rm -Rf /etc/yum.repos.d/*; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
@@ -105,6 +105,15 @@ retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/cento
 retrieve_repo_file() {
   local RELEASE_VER RELEASE_FILE IFS
   RELEASE_VER="$(cat /etc/*-release | grep 'VERSION_ID=' | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}')"
+  if [[ "$RELEASE_VER" -ge "8" ]]; then
+    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.oci.repo"
+  elif [[ "$RELEASE_VER" -lt "8" ]]; then
+    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
+  else
+    printf_red "Can not determine OS release version"
+    exit 1
+  fi
+  save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
@@ -204,7 +213,7 @@ install_pkg git
 install_pkg nail
 install_pkg e2fsprogs
 install_pkg redhat-lsb
-install_pkg nano
+install_pkg neovim
 install_pkg unzip
 run_external rm -Rf /tmp/dotfiles
 run_external timedatectl set-timezone America/New_York
@@ -224,10 +233,15 @@ run_grub
 ##################################################################################################################
 printf_head "Installing the packages for $SCRIPT_DESCRIBE"
 ##################################################################################################################
+install_pkg apr
+install_pkg apr-util
+install_pkg at
 install_pkg attr
 install_pkg authconfig
 install_pkg autogen-libopts
 install_pkg avahi
+install_pkg awffull
+install_pkg awstats
 install_pkg basesystem
 install_pkg bash
 install_pkg bash-completion
@@ -257,6 +271,8 @@ install_pkg cockpit
 install_pkg cockpit-bridge
 install_pkg cockpit-system
 install_pkg cockpit-ws
+install_pkg composer
+install_pkg comps-extras
 install_pkg coolkey
 install_pkg coreutils
 install_pkg cowsay
@@ -289,6 +305,7 @@ install_pkg dhcp-libs
 install_pkg dialog
 install_pkg diffutils
 install_pkg dmidecode
+install_pkg dnsmasq
 install_pkg dos2unix
 install_pkg dosfstools
 install_pkg downtimed
@@ -346,6 +363,9 @@ install_pkg gnupg2
 install_pkg gnupg2-smime
 install_pkg gnutls
 install_pkg gobject-introspection
+install_pkg golang
+install_pkg golang-bin
+install_pkg golang-src
 install_pkg gpgme
 install_pkg gpm-libs
 install_pkg grep
@@ -366,6 +386,7 @@ install_pkg harfbuzz
 install_pkg hdparm
 install_pkg hostname
 install_pkg htop
+install_pkg httpd
 install_pkg hunspell
 install_pkg hunspell-en-US
 install_pkg hwdata
@@ -412,7 +433,10 @@ install_pkg mesa-libgbm
 install_pkg mesa-libGL
 install_pkg mesa-libglapi
 install_pkg mlocate
+install_pkg mod_geoip
+install_pkg mod_wsgi
 install_pkg mozjs17
+install_pkg mrtg
 install_pkg mtr
 install_pkg munin
 install_pkg munin-common
@@ -431,7 +455,9 @@ install_pkg net-tools
 install_pkg newt
 install_pkg newt-python
 install_pkg nfs-utils
+install_pkg nginx
 install_pkg nmap-ncat
+install_pkg nodejs
 install_pkg nspr
 install_pkg nss
 install_pkg nss-pem
@@ -682,6 +708,20 @@ install_pkg perl-XML-RegExp
 install_pkg perl-XML-SAX
 install_pkg perl-XML-SAX-Base
 install_pkg perl-XML-Stream
+install_pkg php
+install_pkg php-cli
+install_pkg php-common
+install_pkg php-fpm
+install_pkg php-gd
+install_pkg php-gmp
+install_pkg php-intl
+install_pkg php-mbstring
+install_pkg php-mysqlnd
+install_pkg php-pdo
+install_pkg php-pecl-geoip
+install_pkg php-pecl-zendopcache
+install_pkg php-pgsql
+install_pkg php-xml
 install_pkg pinentry
 install_pkg pinfo
 install_pkg pixman
@@ -691,6 +731,8 @@ install_pkg plymouth-core-libs
 install_pkg plymouth-scripts
 install_pkg ponysay
 install_pkg popt
+install_pkg postfix
+install_pkg proftpd
 install_pkg psacct
 install_pkg pygobject2
 install_pkg pygpgme
@@ -722,6 +764,7 @@ install_pkg python2-requests
 install_pkg python2-six
 install_pkg python2-speedtest-cli
 install_pkg python2-zope-interface
+install_pkg python36-pillow-devel
 install_pkg python-augeas
 install_pkg python-backports
 install_pkg python-backports-ssl_match_hostname
@@ -760,6 +803,7 @@ install_pkg python-srpm-macros
 install_pkg python-sssdconfig
 install_pkg python-urlgrabber
 install_pkg python-urllib3
+install_pkg python-virtualenvwrapper
 install_pkg python-zope-component
 install_pkg python-zope-event
 install_pkg python-zope-interface
@@ -784,9 +828,11 @@ install_pkg rrdtool-perl
 install_pkg rsync
 install_pkg rsync-daemon
 install_pkg rsyslog
+install_pkg samba
 install_pkg satyr
 install_pkg screen
 install_pkg sed
+install_pkg sendxmpp
 install_pkg setools-libs
 install_pkg setup
 install_pkg setuptool
@@ -815,6 +861,10 @@ install_pkg tcp_wrappers
 install_pkg tcp_wrappers-libs
 install_pkg telnet
 install_pkg time
+install_pkg tmux
+install_pkg tmux-powerline
+install_pkg tmux-top
+install_pkg tor
 install_pkg traceroute
 install_pkg tree
 install_pkg trousers
@@ -860,20 +910,6 @@ install_pkg yum-plugin-fastestmirror
 install_pkg yum-utils
 install_pkg zip
 install_pkg zlib
-install_pkg httpd
-install_pkg httpd-filesystem
-install_pkg httpd-tools
-install_pkg http-parser
-install_pkg mod_fcgid
-install_pkg mod_geoip
-install_pkg mod_http2
-install_pkg mod_maxminddb
-install_pkg mod_perl
-install_pkg mod_ssl
-install_pkg mod_wsgi
-install_pkg mod_proxy_html
-install_pkg mod_proxy_uwsgi
-
 ##################################################################################################################
 printf_head "Fixing packages"
 ##################################################################################################################
@@ -883,6 +919,7 @@ rm -Rf /etc/named* /var/named/* /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /va
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
+devnull git clone -q https://github.com/phpsysinfo/phpsysinfo /var/www/html/sysinfo
 devnull git clone -q https://github.com/casjay-base/centos /tmp/configs
 devnull find /tmp/configs -type f -iname "*.sh" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.pl" -exec chmod 755 {} \;
@@ -890,7 +927,7 @@ devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$(hostname -f)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$(hostname -s)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" {} \;
-devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6,httpd,nginx}
+#devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
 devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
 devnull mkdir -p /etc/rsync.d /var/log/named
 devnull chown -Rf named:named /etc/named* /var/named /var/log/named
@@ -907,8 +944,7 @@ if devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/vi
 fi
 sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh)"
 
-run_post "dfmgr install misc"
-run_post "dfmgr install bash"
+run_post "dfmgr install bash misc"
 ##################################################################################################################
 printf_head "Disabling services"
 ##################################################################################################################
@@ -954,6 +990,12 @@ system_service_enable nginx
 echo "" >/etc/yum/pluginconf.d/subscription-manager.conf
 rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
 /root/bin/changeip.sh >/dev/null 2>&1
+mkdir -p /mnt/backups /var/www/html/.well-known /etc/letsencrypt/live
+echo "" >>/etc/fstab
+#echo "10.0.254.1:/mnt/Volume_1/backups         /mnt/backups                 nfs defaults,rw 0 0" >> /etc/fstab
+#echo "10.0.254.1:/var/www/html/.well-known     /var/www/html/.well-known    nfs defaults,rw 0 0" >> /etc/fstab
+#echo "10.0.254.1:/etc/letsencrypt              /etc/letsencrypt             nfs defaults,rw 0 0" >> /etc/fstab
+#mount -a
 update-ca-trust && update-ca-trust extract
 #if using letsencrypt certificates
 chmod 600 /etc/named/certbot-update.conf
@@ -969,10 +1011,14 @@ else
   find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
 fi
 bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
+if [ -f /var/lib/tor/hidden_service/hostname ]; then
+  cp -Rf /var/lib/tor/hidden_service/hostname /var/www/html/tor_hostname
+fi
 if [ "$(hostname -s)" != "pbx" ]; then
   rm_repo_files
   retrieve_repo_file
 fi
+chown -Rf apache:apache /var/www
 history -c && history -w
 
 ##################################################################################################################
