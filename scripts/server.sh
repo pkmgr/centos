@@ -764,6 +764,7 @@ install_pkg python2-requests
 install_pkg python2-six
 install_pkg python2-speedtest-cli
 install_pkg python2-zope-interface
+install_pkg python36-pillow-devel
 install_pkg python-augeas
 install_pkg python-backports
 install_pkg python-backports-ssl_match_hostname
@@ -802,6 +803,7 @@ install_pkg python-srpm-macros
 install_pkg python-sssdconfig
 install_pkg python-urlgrabber
 install_pkg python-urllib3
+install_pkg python-virtualenvwrapper
 install_pkg python-zope-component
 install_pkg python-zope-event
 install_pkg python-zope-interface
@@ -908,7 +910,6 @@ install_pkg yum-plugin-fastestmirror
 install_pkg yum-utils
 install_pkg zip
 install_pkg zlib
-
 ##################################################################################################################
 printf_head "Fixing packages"
 ##################################################################################################################
