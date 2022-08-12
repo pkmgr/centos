@@ -23,7 +23,7 @@ SCRIPT_OS="centos"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set bash options
-if [[ "$1" == "--debug" ]]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
+if [ "$1" == "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set functions
 SCRIPTSFUNCTURL="${SCRIPTSFUNCTURL:-https://github.com/casjay-dotfiles/scripts/raw/main/functions}"
@@ -39,7 +39,7 @@ else
   . "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[[ "$1" == "--help" ]] && printf_exit "${GREEN}${SCRIPT_DESCRIBE} installer for $SCRIPT_OS"
+[ "$1" == "--help" ] && printf_exit "${GREEN}${SCRIPT_DESCRIBE} installer for $SCRIPT_OS"
 cat /etc/*-release | grep -E 'ID=|ID_LIKE=' | grep -qwE "$SCRIPT_OS" &>/dev/null && true || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 system_service_exists() { systemctl status "$1" 2>&1 | grep -iq "$1" && return 0 || return 1; }
@@ -79,6 +79,7 @@ disable_selinux() {
   if selinuxenabled; then
     printf_blue "Disabling selinux"
     devnull setenforce 0
+    sed -i 's|SELINUX=.*|SELINUX=disabled|g' "/etc/selinux/config"
   else
     printf_green "selinux is already disabled"
   fi
@@ -86,7 +87,7 @@ disable_selinux() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ssh_key() {
   printf_green "Grabbing $GITHUB_USER ssh key"
-  [[ -d "/root/.ssh" ]] || mkdir -p "/root/.ssh"
+  [ -d "/root/.ssh" ] || mkdir -p "/root/.ssh"
   if urlverify "https://github.com/$GITHUB_USER.keys"; then
     curl -q -SLs "https://github.com/$GITHUB_USER.keys" | tee "/root/.ssh/authorized_keys" &>/dev/null &&
       printf_green "Successfully added github ssh key" || printf_return "Failed to add github ssh key"
@@ -96,7 +97,7 @@ ssh_key() {
   return 0
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-rm_repo_files() { return; }
+rm_repo_files() { [ "$YUM_DELETE" = "yes" ] && rm -Rf "/etc/yum.repos" || true; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
@@ -105,15 +106,20 @@ retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/cento
 retrieve_repo_file() {
   local RELEASE_VER RELEASE_FILE IFS
   RELEASE_VER="$(cat /etc/*-release | grep 'VERSION_ID=' | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}')"
-  if [[ "$RELEASE_VER" -ge "8" ]]; then
+  if [ "$RELEASE_VER" -ge "9" ]; then
+    YUM_DELETE="no"
+    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
+  elif [ "$RELEASE_VER" -ge "8" ]; then
+    YUM_DELETE="no"
     RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.oci.repo"
-  elif [[ "$RELEASE_VER" -lt "8" ]]; then
+  elif [ "$RELEASE_VER" -lt "8" ]; then
+    YUM_DELETE="yes"
     RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
   else
     printf_red "Can not determine OS release version"
     exit 1
   fi
-  save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
+  [ -z "$RELEASE_FILE" ] || save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
@@ -124,11 +130,11 @@ run_grub() {
   grub_bin="$(builtin type -P grub-mkconfig 2>/dev/null || false)"
   grub2_bin="$(builtin type -P grub2-mkconfig 2>/dev/null || false)"
   rm -Rf /boot/*rescue*
-  if [ -f "$grub2_bin" ] && [[ -f "$grub2_cnf" ]]; then
+  if [ -f "$grub2_bin" ] && [ -f "$grub2_cnf" ]; then
     devnull grub2-mkconfig -o "$grub2_cnf" &&
       printf_green "Updated $grub2_cnf" ||
       printf_return "Failed to update $grub2_cnf"
-  elif type -P grub-mkconfig &>/dev/null && [[ -f "$grub_cnf" ]]; then
+  elif type -P grub-mkconfig &>/dev/null && [ -f "$grub_cnf" ]; then
     devnull grub-mkconfig -o "$grub_cnf" &&
       printf_green "Updated $grub_cnf" ||
       printf_return "Failed to update $grub_cnf"
@@ -162,7 +168,7 @@ if [ -f /etc/casjaysdev/updates/versions/default.txt ]; then
   printf_exit "/etc/casjaysdev/updates/versions/default.txt"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
-  if [[ -d "/usr/local/share/CasjaysDev/scripts" ]]; then
+  if [ -d "/usr/local/share/CasjaysDev/scripts" ]; then
     run_external "git -C /usr/local/share/CasjaysDev/scripts pull"
   else
     run_external "git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts"
@@ -999,7 +1005,7 @@ echo "" >>/etc/fstab
 update-ca-trust && update-ca-trust extract
 #if using letsencrypt certificates
 chmod 600 /etc/named/certbot-update.conf
-if [[ -d /etc/letsencrypt/live/$(domainname) ]] || [[ -d /etc/letsencrypt/live/domain ]]; then
+if [ -d /etc/letsencrypt/live/$(domainname) ] || [ -d /etc/letsencrypt/live/domain ]; then
   ln -s /etc/letsencrypt/live/$(domainname) /etc/letsencrypt/live/domain
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
