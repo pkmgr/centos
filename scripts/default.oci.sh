@@ -104,22 +104,25 @@ save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null 
 retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 retrieve_repo_file() {
-  local RELEASE_VER RELEASE_FILE IFS
+  local RELEASE_NAME RELEASE_VER RELEASE_FILE IFS
   RELEASE_VER="$(cat /etc/*-release | grep 'VERSION_ID=' | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}')"
-  if [ "$RELEASE_VER" -ge "9" ]; then
-    YUM_DELETE="no"
-    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
-  elif [ "$RELEASE_VER" -ge "8" ]; then
-    YUM_DELETE="no"
-    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.oci.repo"
-  elif [ "$RELEASE_VER" -lt "8" ]; then
-    YUM_DELETE="yes"
-    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
+  RELEASE_NAME="$(grep -i '^name=' /etc/os-release | awk -F'=' '{print $2}' | sed 's|"||g;s| .*||g' | tr '[:upper:]' '[:lower:]')"
+  if [ "$RELEASE_NAME" = "centos" ]; then
+    if [ "$RELEASE_VER" -ge "9" ]; then
+      YUM_DELETE="no"
+      RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
+    elif [ "$RELEASE_VER" -ge "8" ]; then
+      RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh8.repo"
+    elif [ "$RELEASE_VER" -lt "8" ]; then
+      RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
+    else
+      printf_red "Can not determine OS release version"
+      exit 1
+    fi
+    [ -z "$RELEASE_FILE" ] || save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
   else
-    printf_red "Can not determine OS release version"
-    exit 1
+    YUM_DELETE="no"
   fi
-  [ -z "$RELEASE_FILE" ] || save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
