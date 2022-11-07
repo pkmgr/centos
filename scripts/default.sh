@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version       : 202111041659-git
-# @Author        : Jason Hempstead
-# @Contact       : jason@casjaysdev.com
-# @License       : WTFPL
-# @ReadME        : default.sh --help
-# @Copyright     : Copyright: (c) 2021 Jason Hempstead, Casjays Developments
-# @Created       : Thursday, Nov 04, 2021 16:59 EDT
-# @File          : default.sh
-# @Description   : default installer for centos/rhel
-# @TODO          :
-# @Other         :
-# @Resource      :
+##@Version           :  202211071239-git
+# @@Author           :  Jason Hempstead
+# @@Contact          :  jason@casjaysdev.com
+# @@License          :  WTFPL
+# @@ReadME           :  default.sh --help
+# @@Copyright        :  Copyright: (c) 2022 Jason Hempstead, Casjays Developments
+# @@Created          :  Monday, Nov 07, 2022 12:39 EST
+# @@File             :  default.sh
+# @@Description      :
+# @@Changelog        :  New script
+# @@TODO             :  Better documentation
+# @@Other            :
+# @@Resource         :
+# @@Terminal App     :  no
+# @@sudo/root        :  no
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 APPNAME="$(basename "$0")"
-VERSION="202111041659-git"
+VERSION="202211071239-git"
 USER="${SUDO_USER:-${USER}}"
 HOME="${USER_HOME:-${HOME}}"
 SRC_DIR="${BASH_SOURCE%/*}"
-SCRIPT_DESCRIBE="all installations"
-SCRIPT_OS="centos"
-GITHUB_USER="${GITHUB_USER:-casjay}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set bash options
-if [ "$1" == "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
+if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set functions
 SCRIPTSFUNCTURL="${SCRIPTSFUNCTURL:-https://github.com/casjay-dotfiles/scripts/raw/main/functions}"
@@ -39,12 +39,27 @@ else
   . "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[ "$1" == "--help" ] && printf_exit "${GREEN}${SCRIPT_DESCRIBE} installer for $SCRIPT_OS"
+SCRIPT_OS="centos"
+SCRIPT_DESCRIBE="default.sh"
+GITHUB_USER="${GITHUB_USER:-casjay}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+SCRIPT_NAME="${APPNAME%.*}"
+RELEASE_VER="$(grep --no-filename -s 'VERSION_ID=' /etc/*-release | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}' | grep '^')"
+RELEASE_NAME="$(grep --no-filename -s '^NAME=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g;s| .*||g' | tr '[:upper:]' '[:lower:]' | grep '^')"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+[ "$1" == "--help" ] && printf_exit "${GREEN}${SCRIPT_DESCRIBE} installer for $SCRIPT_OS${NC}"
 grep --no-filename -sE '^ID=|^ID_LIKE=|^NAME=' /etc/*-release | grep -qiwE "$SCRIPT_OS" && true || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 system_service_exists() { systemctl status "$1" 2>&1 | grep -iq "$1" && return 0 || return 1; }
 system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable $1" "Enabling service: $1" || return 1; }
 system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__dnf_yum() {
+  local rhel_pkgmgr=""
+  rhel_pkgmgr="$(builtin type -P dnf || builtin type -P yum || false)"
+  $rhel_pkgmgr "$@"
+  return $?
+}
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 test_pkg() {
   for pkg in "$@"; do
@@ -58,16 +73,18 @@ test_pkg() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 remove_pkg() {
-  test_pkg "$*" &>/dev/null || execute "yum remove -q -y $*" "Removing: $*"
+  test_pkg "$*" &>/dev/null || execute "__dnf_yum remove -q -y $*" "Removing: $*"
   test_pkg "$*" &>/dev/null || return 0
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 install_pkg() {
-  test_pkg "$*" && if execute "yum install -q -y --skip-broken $*" "Installing: $*"; then
-    return 0
+  local statusCode=0
+  test_pkg "$*" && if execute "__dnf_yum install -q -y --skip-broken $*" "Installing: $*"; then
+    test_pkg "$*" &>/dev/null && statusCode=0 || statusCode=1
   else
-    return 1
+    statusCode=1
   fi
+  return $statusCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 detect_selinux() {
@@ -86,18 +103,24 @@ disable_selinux() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ssh_key() {
-  [ -n "$GITHUB_USER" ] || return 0
-  printf_green "Grabbing $GITHUB_USER ssh key"
-  [ -d "/root/.ssh" ] || mkdir -p "/root/.ssh"
-  if urlverify "https://github.com/$GITHUB_USER.keys"; then
-    curl -q -SLs "https://github.com/$GITHUB_USER.keys" | tee "/root/.ssh/authorized_keys" &>/dev/null &&
-      printf_green "Successfully added github ssh key" || printf_return "Failed to add github ssh key"
+  [ -n "$GITHUB_USER" ] && local ssh_key="" || return 0
+  printf_green "Grabbing ssh key for  $GITHUB_USER"
+  ssh_key="$(curl -q -LSsf "https://github.com/$GITHUB_USER.keys" 2>/dev/null | grep '^' || echo '')"
+  if [ -n "$ssh_key" ]; then
+    [ -d "/root/.ssh" ] || mkdir -p "/root/.ssh"
+    [ -f "/root/.ssh/authorized_keys" ] || touch "/root/.ssh/authorized_keys"
+    if ! grep -sq "$ssh_key" "/root/.ssh/authorized_keys"; then
+      echo "$ssh_key" | tee -a "/root/.ssh/authorized_keys" &>/dev/null
+      printf_green "Successfully added github ssh key"
+    fi
+    return 0
   else
     printf_return "Can not get key from https://github.com/$GITHUB_USER.keys"
+    return 1
   fi
-  return 0
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+printf_head_clear() { clear && printf_head "$*"; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos" || true; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
@@ -105,10 +128,17 @@ save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null 
 domain_name() { hostname -f | awk -F'.' '{$1="";OFS="." ; print $0}' | sed 's/^.//;s| |.|g' | grep '^'; }
 retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+rm_if_exists() {
+  local file_loc=("$@") && shift $#
+  for file in "${file_loc[@]}"; do
+    if [ -e "$file" ]; then
+      execute "rm -Rf $file" "Removing $file"
+    fi
+  done
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 retrieve_repo_file() {
-  local RELEASE_NAME RELEASE_VER RELEASE_FILE IFS
-  RELEASE_VER="$(cat /etc/*-release | grep 'VERSION_ID=' | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}')"
-  RELEASE_NAME="$(grep -i '^name=' /etc/os-release | awk -F'=' '{print $2}' | sed 's|"||g;s| .*||g' | tr '[:upper:]' '[:lower:]')"
+  local RELEASE_FILE IFS
   if [ "$RELEASE_NAME" = "centos" ]; then
     if [ "$RELEASE_VER" -ge "9" ]; then
       YUM_DELETE="no"
@@ -132,21 +162,28 @@ retrieve_repo_file() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
-  local grub_cnf grub2_cnf grub_bin grub2_bin
-  printf_green "Setting up grub"
-  grub_cnf="/boot/grub/grub.cfg"
-  grub2_cnf="/boot/grub2/grub.cfg"
-  grub_bin="$(builtin type -P grub-mkconfig 2>/dev/null || false)"
-  grub2_bin="$(builtin type -P grub2-mkconfig 2>/dev/null || false)"
-  rm -Rf /boot/*rescue*
-  if [ -f "$grub2_bin" ] && [ -f "$grub2_cnf" ]; then
-    devnull grub2-mkconfig -o "$grub2_cnf" &&
-      printf_green "Updated $grub2_cnf" ||
-      printf_return "Failed to update $grub2_cnf"
-  elif type -P grub-mkconfig &>/dev/null && [ -f "$grub_cnf" ]; then
-    devnull grub-mkconfig -o "$grub_cnf" &&
-      printf_green "Updated $grub_cnf" ||
-      printf_return "Failed to update $grub_cnf"
+  printf_green "Setting up ${grub_bin_name//-mkconfig/}"
+  local cfg="" efi="" grub_cfg="" grub_efi="" grub_bin="" grub_bin_name=""
+  grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' | grep '^' || false)"
+  grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' | grep '^' || false)"
+  grub_bin="$(builtin type -P grub-mkconfig 2>/dev/null || builtin type -P grub2-mkconfig 2>/dev/null || false)"
+  grub_bin_name="$(basename "$grub_bin" 2>/dev/null)"
+  if [ -n "$grub_bin" ]; then
+    rm_if_exists /boot/*rescue*
+    if [ -n "$grub_cfg" ]; then
+      for cfg in $grub_cfg; do
+        if [ -e "$cfg" ]; then
+          devnull $grub_bin -o "$cfg" && printf_green "Updated $cfg" || printf_return "Failed to update $cfg"
+        fi
+      done
+    fi
+    if [ -n "$grub_efi" ]; then
+      for efi in $grub_efi; do
+        if [ -e "$efi" ]; then
+          devnull $grub_bin -o "$efi" && printf_green "Updated $efi" || printf_return "Failed to update $efi"
+        fi
+      done
+    fi
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -165,16 +202,15 @@ fix_network_device_name() {
   find "$1" -type f -exec sed -i 's|eth0|'$device'|g' {} +
 }
 ##################################################################################################################
-clear
-shift $#
+printf_head_clear "Initializing the installer for $SCRIPT_NAME"
 ##################################################################################################################
-printf_head "Initializing the installer"
-##################################################################################################################
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if [ -f /etc/casjaysdev/updates/versions/default.txt ]; then
+if [ -f "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt" ]; then
   printf_red "This has already been installed"
   printf_red "To reinstall please remove the version file in"
-  printf_exit "/etc/casjaysdev/updates/versions/default.txt"
+  printf_exit "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
+else
+  install_pkg vnstat && system_service_enable vnstat
+  touch "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
   if [ -d "/usr/local/share/CasjaysDev/scripts" ]; then
@@ -202,7 +238,7 @@ printf_head "Configuring cores for compiling"
 ##################################################################################################################
 numberofcores=$(grep -c ^processor /proc/cpuinfo)
 printf_yellow "Total cores avaliable: $numberofcores"
-if [ -f "/etc/makepkg.conf" ]; then
+if [ -f /etc/makepkg.conf ]; then
   if [ $numberofcores -gt 1 ]; then
     sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores + 1))'"/g' /etc/makepkg.conf
     sed -i 's/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T '"$numberofcores"' -z -)/g' /etc/makepkg.conf
@@ -218,8 +254,6 @@ printf_head "Configuring the system"
 ##################################################################################################################
 run_external yum clean all
 run_external yum update -q -y --skip-broken
-install_pkg vnstat
-system_service_enable vnstat
 install_pkg net-tools
 install_pkg wget
 install_pkg curl
@@ -227,21 +261,20 @@ install_pkg git
 install_pkg nail
 install_pkg e2fsprogs
 install_pkg redhat-lsb
-install_pkg nano
+install_pkg neovim
 install_pkg unzip
-install_pkg cronie-noanacron
-run_external rm -Rf /tmp/dotfiles
-run_external rm -Rf /root/anaconda-ks.cfg /var/log/anaconda
+rm_if_exists /tmp/dotfiles
 run_external timedatectl set-timezone America/New_York
-for rpms in cronie-anacron sendmail sendmail-cf; do
+install_pkg cronie-noanacron
+for rpms in echo cronie-anacron sendmail sendmail-cf; do
   rpm -ev --nodeps $rpms &>/dev/null
 done
+rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 if [ "$(hostname -s)" != "pbx" ]; then
   retrieve_repo_file
 fi
 run_external yum clean all
 run_external yum update -q -y --skip-broken
-run_grub
 
 ##################################################################################################################
 printf_head "Installing the packages for $SCRIPT_DESCRIBE"
@@ -887,11 +920,19 @@ install_pkg zlib
 printf_head "Fixing packages"
 ##################################################################################################################
 run_grub
-rm -Rf /etc/named* /var/named/* /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf /tmp/configs
 
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
+rm_if_exists /etc/named*
+rm_if_exists /var/named*
+rm_if_exists /tmp/configs
+rm_if_exists /etc/ntp.conf
+rm_if_exists /etc/httpd/conf.d/ssl.conf
+rm_if_exists /etc/cron*/0*
+rm_if_exists /etc/cron*/dailyjobs
+rm_if_exists /var/ftp/uploads
+rm_if_exists /tmp/configs
 devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
 #devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6,httpd,nginx}
 [ -f "/etc/sysconfig/network-scripts/ifcfg-eth0" ] || devnull rm -Rf "/tmp/configs/etc/etc/sysconfig/network-scripts/ifcfg-eth0"
@@ -918,6 +959,23 @@ fi
 run_post "dfmgr install misc"
 run_post "dfmgr install bash"
 ##################################################################################################################
+printf_head "Enabling services"
+##################################################################################################################
+system_service_enable sshd
+system_service_enable tor
+system_service_enable munin-node
+system_service_enable cockpit
+system_service_enable postfix
+system_service_enable uptimed
+system_service_enable php-fpm
+system_service_enable proftpd
+system_service_enable rsyslog
+system_service_enable ntpd
+system_service_enable snmpd
+system_service_enable cockpit.socket
+system_service_enable named
+
+##################################################################################################################
 printf_head "Disabling services"
 ##################################################################################################################
 system_service_disable firewalld
@@ -938,21 +996,9 @@ system_service_disable dhcpd6
 system_service_disable radvd
 
 ##################################################################################################################
-printf_head "Enabling services"
+printf_head "Running post install"
 ##################################################################################################################
-system_service_enable sshd
-system_service_enable tor
-system_service_enable munin-node
-system_service_enable cockpit
-system_service_enable postfix
-system_service_enable uptimed
-system_service_enable php-fpm
-system_service_enable proftpd
-system_service_enable rsyslog
-system_service_enable ntpd
-system_service_enable snmpd
-system_service_enable cockpit.socket
-system_service_enable named
+[ -f "/etc/yum/pluginconf.d/subscription-manager.conf" ] && run_post echo "" >"/etc/yum/pluginconf.d/subscription-manager.conf"
 
 ##################################################################################################################
 printf_head "Cleaning up"
@@ -983,17 +1029,23 @@ fi
 history -c && history -w
 
 ##################################################################################################################
-printf_info "Installer version: $(retrieve_version_file)"
+printf_head "Installer version: $(retrieve_version_file)"
 ##################################################################################################################
-mkdir -p /etc/casjaysdev/updates/versions
-echo "$VERSION" >/etc/casjaysdev/updates/versions/configs.txt
-chmod -Rf 664 /etc/casjaysdev/updates/versions/configs.txt
+mkdir -p" /etc/casjaysdev/updates/versions"
+echo "$VERSION" >"/etc/casjaysdev/updates/versions/configs.txt"
+chmod -Rf 664 "/etc/casjaysdev/updates/versions/configs.txt"
 
 ##################################################################################################################
-printf_head "Finished "
-echo ""
+printf_head "Finished setting uo $(hostname -f)"
+##################################################################################################################
+printf_newline
+
 ##################################################################################################################
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-set --
-exit
-# end
+# End application
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# lets exit with code
+exit ${exitCode:-$?}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# End application
+# ex: ts=2 sw=2 et filetype=sh
