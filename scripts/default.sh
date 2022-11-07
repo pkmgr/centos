@@ -98,10 +98,11 @@ ssh_key() {
   return 0
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos" || true; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
-grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
+domain_name() { hostname -f | awk -F'.' '{$1="";OFS="." ; print $0}' | sed 's/^.//;s| |.|g' | grep '^'; }
 retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 retrieve_repo_file() {
@@ -165,7 +166,7 @@ fix_network_device_name() {
 }
 ##################################################################################################################
 clear
-ARGS="$*" && shift $#
+shift $#
 ##################################################################################################################
 printf_head "Initializing the installer"
 ##################################################################################################################
@@ -201,7 +202,7 @@ printf_head "Configuring cores for compiling"
 ##################################################################################################################
 numberofcores=$(grep -c ^processor /proc/cpuinfo)
 printf_yellow "Total cores avaliable: $numberofcores"
-if [ -f /etc/makepkg.conf ]; then
+if [ -f "/etc/makepkg.conf" ]; then
   if [ $numberofcores -gt 1 ]; then
     sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores + 1))'"/g' /etc/makepkg.conf
     sed -i 's/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T '"$numberofcores"' -z -)/g' /etc/makepkg.conf
@@ -228,13 +229,13 @@ install_pkg e2fsprogs
 install_pkg redhat-lsb
 install_pkg nano
 install_pkg unzip
-run_external rm -Rf /tmp/dotfiles
-run_external timedatectl set-timezone America/New_York
 install_pkg cronie-noanacron
-for rpms in echo cronie-anacron sendmail sendmail-cf; do
+run_external rm -Rf /tmp/dotfiles
+run_external rm -Rf /root/anaconda-ks.cfg /var/log/anaconda
+run_external timedatectl set-timezone America/New_York
+for rpms in cronie-anacron sendmail sendmail-cf; do
   rpm -ev --nodeps $rpms &>/dev/null
 done
-run_external rm -Rf /root/anaconda-ks.cfg /var/log/anaconda
 if [ "$(hostname -s)" != "pbx" ]; then
   retrieve_repo_file
 fi
@@ -891,22 +892,22 @@ rm -Rf /etc/named* /var/named/* /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /va
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
-devnull git clone -q https://github.com/casjay-base/centos /tmp/configs
+devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
+#devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6,httpd,nginx}
+[ -f "/etc/sysconfig/network-scripts/ifcfg-eth0" ] || devnull rm -Rf "/tmp/configs/etc/etc/sysconfig/network-scripts/ifcfg-eth0"
 devnull find /tmp/configs -type f -iname "*.sh" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.pl" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$(hostname -f)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$(hostname -s)#g" {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" {} \;
-devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6,httpd,nginx}
+devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$(domain_name)#g" {} \;
 devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
 devnull mkdir -p /etc/rsync.d /var/log/named
 devnull chown -Rf named:named /etc/named* /var/named /var/log/named
 devnull chown -Rf apache:apache /var/www /usr/share/httpd
-devnull sed -i "s#myserverdomainname#$(echo $HOSTNAME)#g" /etc/sysconfig/network
-devnull sed -i "s#mydomain#$(echo $HOSTNAME | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" /etc/sysconfig/network
-devnull domainname $(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//') &&
-  echo "kernel.domainname=$(domainname)" >>/etc/sysctl.conf
+devnull sed -i "s#myserverdomainname#$(echo "$HOSTNAME")#g" /etc/sysconfig/network
+devnull sed -i "s#mydomain#$(domain_name)#g" /etc/sysconfig/network
+devnull domainname $(domain_name) && echo "kernel.domainname=$(domain_name)" >>/etc/sysctl.conf
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
@@ -958,14 +959,13 @@ printf_head "Cleaning up"
 ##################################################################################################################
 system_service_enable httpd
 system_service_enable nginx
-echo "" >/etc/yum/pluginconf.d/subscription-manager.conf
 rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
 /root/bin/changeip.sh >/dev/null 2>&1
-update-ca-trust && update-ca-trust extract
+[ -f "/etc/yum/pluginconf.d/subscription-manager.conf" ] && echo "" >/etc/yum/pluginconf.d/subscription-manager.conf
 #if using letsencrypt certificates
 chmod 600 /etc/named/certbot-update.conf
-if [ -d /etc/letsencrypt/live/$(domainname) ] || [ -d /etc/letsencrypt/live/domain ]; then
-  ln -s /etc/letsencrypt/live/$(domainname) /etc/letsencrypt/live/domain
+if [ -d "/etc/letsencrypt/live/$(domain_name)" ] || [ -d "/etc/letsencrypt/live/domain" ]; then
+  ln -s /etc/letsencrypt/live/$(domain_name) /etc/letsencrypt/live/domain
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
   cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
@@ -975,6 +975,7 @@ else
   find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
   find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
 fi
+update-ca-trust && update-ca-trust extract
 bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
 if [ "$(hostname -s)" != "pbx" ]; then
   retrieve_repo_file
