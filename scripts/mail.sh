@@ -93,6 +93,7 @@ disable_selinux() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ssh_key() {
+  [ -n "$GITHUB_USER" ] || return 0
   printf_green "Grabbing $GITHUB_USER ssh key"
   [ -d "/root/.ssh" ] || mkdir -p "/root/.ssh"
   if urlverify "https://github.com/$GITHUB_USER.keys"; then
@@ -104,7 +105,7 @@ ssh_key() {
   return 0
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-rm_repo_files() { [ "$YUM_DELETE" = "yes" ] && rm -Rf "/etc/yum.repos" || true; }
+rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos" || true; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
@@ -119,16 +120,20 @@ retrieve_repo_file() {
       YUM_DELETE="no"
       RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
     elif [ "$RELEASE_VER" -ge "8" ]; then
+      YUM_DELETE="yes"
       RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh8.repo"
     elif [ "$RELEASE_VER" -lt "8" ]; then
+      YUM_DELETE="yes"
       RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
     else
-      printf_red "Can not determine OS release version"
-      exit 1
+      return
     fi
-    [ -z "$RELEASE_FILE" ] || save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
   else
     YUM_DELETE="no"
+  fi
+  if [ -n "$RELEASE_FILE" ]; then
+    rm_repo_files "$YUM_DELETE"
+    save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -189,7 +194,6 @@ if ! builtin type -P systemmgr &>/dev/null; then
   run_external "yum clean all"
 fi
 if [ "$(hostname -s)" != "pbx" ]; then
-  rm_repo_files
   retrieve_repo_file
 fi
 printf_green "Installer has been initialized"
@@ -239,7 +243,6 @@ for rpms in $(echo cronie-anacron sendmail sendmail-cf); do
 done
 run_external rm -Rf /root/anaconda-ks.cfg /var/log/anaconda
 if [ "$(hostname -s)" != "pbx" ]; then
-  rm_repo_files
   retrieve_repo_file
 fi
 run_external yum clean all
@@ -971,7 +974,6 @@ if [ -f /var/lib/tor/hidden_service/hostname ]; then
   cp -Rf /var/lib/tor/hidden_service/hostname /var/www/html/tor_hostname
 fi
 if [ "$(hostname -s)" != "pbx" ]; then
-  rm_repo_files
   retrieve_repo_file
 fi
 chown -Rf apache:apache /var/www
