@@ -57,7 +57,7 @@ system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && exe
 __dnf_yum() {
   local rhel_pkgmgr=""
   rhel_pkgmgr="$(builtin type -P dnf || builtin type -P yum || false)"
-  $rhel_pkgmgr "$@"
+  $rhel_pkgmgr "$@" || false
   return $?
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -79,10 +79,11 @@ remove_pkg() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 install_pkg() {
   local statusCode=0
-  test_pkg "$*" && if execute "__dnf_yum install -q -y --skip-broken $*" "Installing: $*"; then
-    test_pkg "$*" &>/dev/null && statusCode=0 || statusCode=1
+  if test_pkg "$*"; then
+    execute "__dnf_yum install -q -y --skip-broken $*" "Installing: $*"
+    test_pkg "$*" &>/dev/null && statusCode=1 || statusCode=0
   else
-    statusCode=1
+    statusCode=0
   fi
   return $statusCode
 }
@@ -102,7 +103,7 @@ disable_selinux() {
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-ssh_key() {
+get_user_ssh_key() {
   [ -n "$GITHUB_USER" ] && local ssh_key="" || return 0
   printf_green "Grabbing ssh key for  $GITHUB_USER"
   ssh_key="$(curl -q -LSsf "https://github.com/$GITHUB_USER.keys" 2>/dev/null | grep '^' || echo '')"
@@ -110,7 +111,7 @@ ssh_key() {
     [ -d "/root/.ssh" ] || mkdir -p "/root/.ssh"
     [ -f "/root/.ssh/authorized_keys" ] || touch "/root/.ssh/authorized_keys"
     if grep -sq "$ssh_key" "/root/.ssh/authorized_keys"; then
-      printf_blue "Key for $GITHUB_USER already exists in ~/.ssh/authorized_keys"
+      printf_cyan "key for $GITHUB_USER already exists in ~/.ssh/authorized_keys"
     else
       echo "$ssh_key" | tee -a "/root/.ssh/authorized_keys" &>/dev/null
       printf_green "Successfully added github ssh key"
@@ -141,7 +142,7 @@ rm_if_exists() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 retrieve_repo_file() {
   local RELEASE_FILE IFS
-  if [ "$RELEASE_NAME" = "centos" ]; then
+  if [ "$RELEASE_NAME" = "centos" ] && [ "$(hostname -s)" != "pbx" ]; then
     if [ "$RELEASE_VER" -ge "9" ]; then
       YUM_DELETE="no"
       RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
@@ -207,12 +208,14 @@ fix_network_device_name() {
 printf_head_clear "Initializing the installer for $SCRIPT_NAME"
 ##################################################################################################################
 if [ -f "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt" ]; then
-  printf_red "This has already been installed"
+  printf_red "$(<"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt")"
   printf_red "To reinstall please remove the version file in"
-  printf_exit "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
+  printf_red "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
+  exit 1
 else
-  install_pkg vnstat && system_service_enable vnstat
-  touch "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
+  install_pkg vnstat && system_service_enable vnstat && systemctl start vnstat &>/dev/null
+  printf '%s\n' "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
+  run_external "yum clean all"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
   if [ -d "/usr/local/share/CasjaysDev/scripts" ]; then
@@ -221,13 +224,11 @@ if ! builtin type -P systemmgr &>/dev/null; then
     run_external "git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts"
   fi
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
-  run_external systemmgr --config &>/dev/null
-  run_external systemmgr install scripts
+  run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr --config
+  run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr update scripts
   run_external "yum clean all"
 fi
-if [ "$(hostname -s)" != "pbx" ]; then
-  retrieve_repo_file
-fi
+retrieve_repo_file
 printf_green "Installer has been initialized"
 
 ##################################################################################################################
@@ -249,7 +250,7 @@ fi
 ##################################################################################################################
 printf_head "Grabbing ssh key from github"
 ##################################################################################################################
-ssh_key
+get_user_ssh_key
 
 ##################################################################################################################
 printf_head "Configuring the system"
@@ -936,8 +937,7 @@ rm_if_exists /etc/cron*/dailyjobs
 rm_if_exists /var/ftp/uploads
 rm_if_exists /tmp/configs
 devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
-#devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6,httpd,nginx}
-[ -f "/etc/sysconfig/network-scripts/ifcfg-eth0" ] || devnull rm -Rf "/tmp/configs/etc/etc/sysconfig/network-scripts/ifcfg-eth0"
+hostname -f 2>&1 | grep -q 'casjay.in' || devnull rm -Rf "/tmp/configs/etc/etc/sysconfig/network-scripts/ifcfg-eth0"
 devnull find /tmp/configs -type f -iname "*.sh" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.pl" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
@@ -958,8 +958,13 @@ if devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/vi
   newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 fi
 
+##################################################################################################################
+printf_head "Installing custom dotfiles"
+##################################################################################################################
 run_post "dfmgr install misc"
+run_post "dfmgr install git"
 run_post "dfmgr install bash"
+
 ##################################################################################################################
 printf_head "Enabling services"
 ##################################################################################################################
