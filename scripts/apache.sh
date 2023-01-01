@@ -16,7 +16,7 @@
 # @@Terminal App     :  no
 # @@sudo/root        :  no
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-APPNAME="$(basename "$0")"
+APPNAME="apache"
 VERSION="202211071239-git"
 USER="${SUDO_USER:-${USER}}"
 HOME="${USER_HOME:-${HOME}}"
@@ -164,7 +164,7 @@ retrieve_repo_file() {
     yum clean all &>/dev/null
     rm_repo_files "$YUM_DELETE"
     save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
-   execute "yum makecache -y -q &>/dev/null" "Updating the package cache"
+    execute "yum makecache -y -q &>/dev/null" "Updating the package cache"
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
