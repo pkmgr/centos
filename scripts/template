@@ -164,7 +164,7 @@ retrieve_repo_file() {
     yum clean all &>/dev/null
     rm_repo_files "$YUM_DELETE"
     save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
-    yum makecache -y -q &>/dev/null
+    execute "yum makecache -y -q &>/dev/null" "Updating the package cache"
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
