@@ -1042,14 +1042,14 @@ history -c && history -w
 ##################################################################################################################
 printf_head "Installer version: $(retrieve_version_file)"
 ##################################################################################################################
-mkdir -p" /etc/casjaysdev/updates/versions"
+mkdir -p "/etc/casjaysdev/updates/versions"
 echo "$VERSION" >"/etc/casjaysdev/updates/versions/configs.txt"
 chmod -Rf 664 "/etc/casjaysdev/updates/versions/configs.txt"
 
 ##################################################################################################################
-printf_head "Finished setting uo $(hostname -f)"
+printf_head "Finished setting up $(hostname -f)"
 ##################################################################################################################
-printf_newline
+printf '\n\n'
 
 ##################################################################################################################
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
