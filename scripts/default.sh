@@ -161,6 +161,7 @@ retrieve_repo_file() {
     YUM_DELETE="no"
   fi
   if [ -n "$RELEASE_FILE" ]; then
+    yum clean all &>/dev/null
     rm_repo_files "$YUM_DELETE"
     save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
     yum makecache -y -q &>/dev/null
