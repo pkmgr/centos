@@ -8,7 +8,7 @@
 # @@Copyright        :  Copyright: (c) 2022 Jason Hempstead, Casjays Developments
 # @@Created          :  Monday, Nov 07, 2022 12:39 EST
 # @@File             :  default.sh
-# @@Description      :
+# @@Description      :  Script to setup CentOS/AlmaLinux/RockyLinux
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
 # @@Other            :
@@ -215,6 +215,7 @@ if [ -f "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt" ]; then
   printf_red "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
   exit 1
 else
+  retrieve_repo_file || printf_exit "The script has failed to initialize"
   install_pkg vnstat && system_service_enable vnstat && systemctl start vnstat &>/dev/null
   printf '%s\n' "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
   run_external "yum clean all"
@@ -230,7 +231,6 @@ if ! builtin type -P systemmgr &>/dev/null; then
   run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr update scripts
   run_external "yum clean all"
 fi
-retrieve_repo_file
 printf_green "Installer has been initialized"
 
 ##################################################################################################################
