@@ -281,6 +281,9 @@ install_pkg cronie-noanacron
 for rpms in echo cronie-anacron sendmail sendmail-cf; do
   rpm -ev --nodeps $rpms &>/dev/null
 done
+for oci in oci* cloud* oracle*; do
+  yum remove -yy "$oci" &>/dev/null
+done
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 if [ "$(hostname -s)" != "pbx" ]; then
   retrieve_repo_file
