@@ -216,6 +216,11 @@ if [ -f "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt" ]; then
   printf_red "To reinstall please remove the version file in"
   printf_red "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
   exit 1
+elif [ -f "/etc/casjaysdev/updates/versions/installed.txt" ]; then
+  printf_red "$(<"/etc/casjaysdev/updates/versions/installed.txt")"
+  printf_red "To reinstall please remove the version file in"
+  printf_red "/etc/casjaysdev/updates/versions/installed.txt"
+  exit 1
 else
   retrieve_repo_file || printf_exit "The script has failed to initialize"
   install_pkg vnstat && system_service_enable vnstat && systemctl start vnstat &>/dev/null
@@ -1044,7 +1049,9 @@ printf_head "Installer version: $(retrieve_version_file)"
 ##################################################################################################################
 mkdir -p "/etc/casjaysdev/updates/versions"
 echo "$VERSION" >"/etc/casjaysdev/updates/versions/configs.txt"
+echo "$(date +'Installed on %y-%m-%d at %H:%M')" >"/etc/casjaysdev/updates/versions/installed.txt"
 chmod -Rf 664 "/etc/casjaysdev/updates/versions/configs.txt"
+chmod -Rf 664 "/etc/casjaysdev/updates/versions/installed.txt"
 
 ##################################################################################################################
 printf_head "Finished setting up $(hostname -f)"
