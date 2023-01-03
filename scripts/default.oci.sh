@@ -264,6 +264,7 @@ get_user_ssh_key
 ##################################################################################################################
 printf_head "Configuring the system"
 ##################################################################################################################
+run_external timedatectl set-timezone America/New_York
 run_external yum clean all
 run_external yum update -q -y --skip-broken
 install_pkg net-tools
@@ -275,8 +276,6 @@ install_pkg e2fsprogs
 install_pkg redhat-lsb
 install_pkg neovim
 install_pkg unzip
-rm_if_exists /tmp/dotfiles
-run_external timedatectl set-timezone America/New_York
 install_pkg cronie-noanacron
 for rpms in echo cronie-anacron sendmail sendmail-cf; do
   rpm -ev --nodeps $rpms &>/dev/null
@@ -284,10 +283,11 @@ done
 for oci in 'oci*' 'cloud*' 'oracle*'; do
   yum remove -yy "$oci" &>/dev/null
 done
-rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 if [ "$(hostname -s)" != "pbx" ]; then
   retrieve_repo_file
 fi
+rm_if_exists /tmp/dotfiles
+rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 run_external yum clean all
 run_external yum update -q -y --skip-broken
 
