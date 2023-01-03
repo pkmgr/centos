@@ -283,9 +283,7 @@ done
 for oci in 'oci*' 'cloud*' 'oracle*'; do
   yum remove -yy "$oci" &>/dev/null
 done
-if [ "$(hostname -s)" != "pbx" ]; then
-  retrieve_repo_file
-fi
+retrieve_repo_file
 rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 run_external yum clean all
@@ -296,11 +294,9 @@ printf_head "Installing the packages for $SCRIPT_DESCRIBE"
 ##################################################################################################################
 install_pkg apr
 install_pkg apr-util
-install_pkg at
 install_pkg attr
 install_pkg authconfig
 install_pkg autogen-libopts
-install_pkg avahi
 install_pkg awffull
 install_pkg awstats
 install_pkg basesystem
@@ -316,13 +312,9 @@ install_pkg binutils
 install_pkg biosdevname
 install_pkg bison
 install_pkg bridge-utils
-install_pkg byobu
 install_pkg bzip2
 install_pkg bzip2-libs
 install_pkg ca-certificates
-install_pkg rocky-indexhtml
-install_pkg rocky-logos
-install_pkg rocky-release
 install_pkg certbot
 install_pkg checkpolicy
 install_pkg chkconfig
@@ -366,13 +358,9 @@ install_pkg dhcp-libs
 install_pkg dialog
 install_pkg diffutils
 install_pkg dmidecode
-install_pkg dnsmasq
 install_pkg dos2unix
 install_pkg dosfstools
 install_pkg downtimed
-install_pkg dracut
-install_pkg dracut-config-rescue
-install_pkg dracut-network
 install_pkg dwz
 install_pkg ed
 install_pkg elfutils
@@ -388,8 +376,6 @@ install_pkg filesystem
 install_pkg findutils
 install_pkg fipscheck
 install_pkg fipscheck-lib
-install_pkg firewalld
-install_pkg firewalld-filesystem
 install_pkg fontconfig
 install_pkg fontpackages-filesystem
 install_pkg fortune-mod
@@ -432,12 +418,7 @@ install_pkg gpm-libs
 install_pkg grep
 install_pkg groff-base
 install_pkg grub2
-install_pkg grub2-common
-install_pkg grub2-pc
-install_pkg grub2-pc-modules
-install_pkg grub2-tools
 install_pkg grub2-tools-extra
-install_pkg grub2-tools-minimal
 install_pkg grubby
 install_pkg gssproxy
 install_pkg guile
@@ -456,17 +437,12 @@ install_pkg info
 install_pkg initscripts
 install_pkg iproute
 install_pkg iprutils
-install_pkg ipset
-install_pkg ipset-libs
-install_pkg iptables
-install_pkg iptstate
 install_pkg iputils
 install_pkg jasper-libs
 install_pkg jbigkit-libs
 install_pkg js-jquery
 install_pkg json-c
 install_pkg json-glib
-install_pkg jwhois
 install_pkg kexec-tools
 install_pkg keyutils
 install_pkg keyutils-libs
@@ -489,16 +465,10 @@ install_pkg mailx
 install_pkg make
 install_pkg man-db
 install_pkg man-pages
-install_pkg mesa-libEGL
-install_pkg mesa-libgbm
-install_pkg mesa-libGL
-install_pkg mesa-libglapi
 install_pkg mlocate
 install_pkg mod_geoip
 install_pkg mod_wsgi
-install_pkg mozjs17
 install_pkg mrtg
-install_pkg mtr
 install_pkg munin
 install_pkg munin-common
 install_pkg munin-node
@@ -515,7 +485,6 @@ install_pkg nettle
 install_pkg net-tools
 install_pkg newt
 install_pkg newt-python
-install_pkg nfs-utils
 install_pkg nginx
 install_pkg nmap-ncat
 install_pkg nodejs
@@ -527,7 +496,6 @@ install_pkg nss-softokn-freebl
 install_pkg nss-sysinit
 install_pkg nss-tools
 install_pkg nss-util
-install_pkg oddjob
 install_pkg oddjob-mkhomedir
 install_pkg openssh
 install_pkg openssh-clients
@@ -537,9 +505,6 @@ install_pkg openssl-libs
 install_pkg os-prober
 install_pkg p11-kit
 install_pkg p11-kit-trust
-install_pkg PackageKit
-install_pkg PackageKit-glib
-install_pkg PackageKit-yum
 install_pkg pam
 install_pkg pango
 install_pkg parted
@@ -877,13 +842,7 @@ install_pkg rdma-core
 install_pkg readline
 install_pkg realmd
 install_pkg recode
-install_pkg redhat-rpm-config
 install_pkg rootfiles
-install_pkg rpm
-install_pkg rpm-build-libs
-install_pkg rpm-libs
-install_pkg rpm-plugin-systemd-inhibit
-install_pkg rpm-python
 install_pkg rrdtool
 install_pkg rrdtool-perl
 install_pkg rsync
@@ -988,15 +947,14 @@ devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$(hostname -f)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$(hostname -s)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" {} \;
-#devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
+devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
 devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
 devnull mkdir -p /etc/rsync.d /var/log/named
 devnull chown -Rf named:named /etc/named* /var/named /var/log/named
 devnull chown -Rf apache:apache /var/www /usr/share/httpd
 devnull sed -i "s#myserverdomainname#$(echo $HOSTNAME)#g" /etc/sysconfig/network
 devnull sed -i "s#mydomain#$(echo $HOSTNAME | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" /etc/sysconfig/network
-devnull domainname $(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//') &&
-  echo "kernel.domainname=$(domainname)" >>/etc/sysctl.conf
+devnull domainname $(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//') && echo "kernel.domainname=$(domainname)" >>/etc/sysctl.conf
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
@@ -1004,8 +962,8 @@ if devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/vi
   newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 fi
 sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh)"
-
 run_post "dfmgr install bash misc"
+
 ##################################################################################################################
 printf_head "Disabling services"
 ##################################################################################################################
@@ -1075,9 +1033,7 @@ bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
 if [ -f /var/lib/tor/hidden_service/hostname ]; then
   cp -Rf /var/lib/tor/hidden_service/hostname /var/www/html/tor_hostname
 fi
-if [ "$(hostname -s)" != "pbx" ]; then
-  retrieve_repo_file
-fi
+retrieve_repo_file
 chown -Rf apache:apache /var/www
 history -c && history -w
 
