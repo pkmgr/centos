@@ -211,6 +211,7 @@ fix_network_device_name() {
 ##################################################################################################################
 printf_head_clear "Initializing the installer for $SCRIPT_NAME"
 ##################################################################################################################
+[ -d "/etc/casjaysdev/updates/versions" ] || mkdir -p "/etc/casjaysdev/updates/versions"
 if [ -f "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt" ]; then
   printf_red "$(<"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt")"
   printf_red "To reinstall please remove the version file in"
