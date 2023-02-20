@@ -125,6 +125,12 @@ get_user_ssh_key() {
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+run_init_check() {
+  for pkg in git curl wget vnstat; do
+    command -v $pkg &>/dev/null || install_pkg $pkg || printf_exit "Failed to install $pkg"
+  done
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 printf_head_clear() { clear && printf_head "$*"; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos" || true; }
@@ -223,8 +229,9 @@ elif [ -f "/etc/casjaysdev/updates/versions/installed.txt" ]; then
   printf_red "/etc/casjaysdev/updates/versions/installed.txt"
   exit 1
 else
+  run_init_check
   retrieve_repo_file || printf_exit "The script has failed to initialize"
-  install_pkg vnstat && system_service_enable vnstat && systemctl start vnstat &>/dev/null
+  system_service_enable vnstat && systemctl start vnstat &>/dev/null
   printf '%s\n' "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
   run_external "yum clean all"
 fi

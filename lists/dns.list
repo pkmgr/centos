@@ -40,9 +40,6 @@ cairo
 cairo-gobject
 c-ares
 casjay-release
-centos-indexhtml
-centos-logos
-centos-release
 certbot
 checkpolicy
 chkconfig

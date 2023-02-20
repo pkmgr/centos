@@ -1,14 +1,6 @@
-apr
-apr-util
-at
-attr
 authconfig
-autogen-libopts
-avahi
 awffull
 awstats
-basesystem
-bash
 bash-completion
 bc
 bind
@@ -24,14 +16,10 @@ byobu
 bzip2
 bzip2-libs
 ca-certificates
-centos-indexhtml
-centos-logos
-centos-release
 certbot
 checkpolicy
 chkconfig
 chrony
-cifs-utils
 cockpit
 cockpit-bridge
 cockpit-dashboard
@@ -49,7 +37,6 @@ cpp
 cracklib
 cracklib-dicts
 createrepo
-cronie
 cronie-noanacron
 crontabs
 cryptsetup
