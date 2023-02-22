@@ -1919,10 +1919,6 @@ install_pkg uuid-devel
 install_pkg uwsgi
 install_pkg vconfig
 install_pkg velocity
-install_pkg vim-common
-install_pkg vim-enhanced
-install_pkg vim-filesystem
-install_pkg vim-minimal
 install_pkg virt-what
 install_pkg vnstat
 install_pkg vo-amrwbenc

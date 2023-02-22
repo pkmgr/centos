@@ -892,10 +892,6 @@ install_pkg uptimed
 install_pkg urw-fonts
 install_pkg ustr
 install_pkg util-linux
-install_pkg vim-common
-install_pkg vim-enhanced
-install_pkg vim-filesystem
-install_pkg vim-minimal
 install_pkg vnstat
 install_pkg webalizer
 install_pkg wget

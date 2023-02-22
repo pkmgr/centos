@@ -902,12 +902,6 @@ install_pkg usbutils
 install_pkg usermode
 install_pkg util-linux
 install_pkg vconfig
-install_pkg vim
-install_pkg vim-common
-install_pkg vim-enhanced
-install_pkg vim-filesystem
-install_pkg vim-minimal
-install_pkg vim-powerline
 install_pkg vnstat
 install_pkg volume_key-libs
 install_pkg webalizer
