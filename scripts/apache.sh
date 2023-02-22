@@ -90,9 +90,8 @@ install_pkg() {
   return $statusCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-detect_selinux() {
-  selinuxenabled
-  if [ $? -ne 0 ]; then return 0; else return 1; fi
+detect_selinudetect_selinux() {
+  [ -f "$(type -P selinuxenabled 2>/dev/null)" ] && return 0 || return 1
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 disable_selinux() {
