@@ -106,7 +106,7 @@ disable_selinux() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 get_user_ssh_key() {
   [ -n "$GITHUB_USER" ] && local ssh_key="" || return 0
-  printf_green "Grabbing ssh key for  $GITHUB_USER"
+  printf_green "Grabbing ssh key from $GITHUB_USER for $USER"
   ssh_key="$(curl -q -LSsf "https://github.com/$GITHUB_USER.keys" 2>/dev/null | grep '^' || echo '')"
   if [ -n "$ssh_key" ]; then
     [ -d "/root/.ssh" ] || mkdir -p "/root/.ssh"
