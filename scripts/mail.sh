@@ -95,7 +95,7 @@ detect_selinux() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 disable_selinux() {
-  if selinuxenabled; then
+  if detect_selinux; then
     printf_blue "Disabling selinux"
     devnull setenforce 0
     sed -i 's|SELINUX=.*|SELINUX=disabled|g' "/etc/selinux/config"

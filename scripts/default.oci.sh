@@ -90,12 +90,12 @@ install_pkg() {
   return $statusCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-detect_selinudetect_selinux() {
+detect_selinux() {
   [ -f "$(type -P selinuxenabled 2>/dev/null)" ] && return 0 || return 1
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 disable_selinux() {
-  if selinuxenabled; then
+  if detect_selinux; then
     printf_blue "Disabling selinux"
     devnull setenforce 0
     sed -i 's|SELINUX=.*|SELINUX=disabled|g' "/etc/selinux/config"
