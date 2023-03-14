@@ -936,6 +936,7 @@ rm -Rf /etc/named* /var/named/* /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /va
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
+set_domainname="$(hostname -f | awk -F '.' '{$1="";OFS="." ; print $0}' | sed 's/^.//' | tr ' ' '.' | grep '^' || hostname -f)"
 devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
 devnull git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
 devnull git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
@@ -944,24 +945,25 @@ devnull find /tmp/configs -type f -iname "*.pl" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$(hostname -f)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$(hostname -s)#g" {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" {} \;
-devnull mkdir -p /etc/rsync.d /var/log/named
+devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$set_domainname#g" {} \;
 devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
+devnull mkdir -p /etc/rsync.d /var/log/named
 devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
+devnull sed -i "s#myserverdomainname#$HOSTNAME#g" /etc/sysconfig/network
+devnull sed -i "s#mydomain#$set_domainname#g" /etc/sysconfig/network
 devnull chown -Rf named:named /etc/named* /var/named /var/log/named
 devnull chown -Rf apache:apache "/var/www" "/usr/share/httpd"
-devnull sed -i "s#myserverdomainname#$(echo $HOSTNAME)#g" /etc/sysconfig/network
-devnull sed -i "s#mydomain#$(echo $HOSTNAME | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" /etc/sysconfig/network
-devnull domainname $(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//') && echo "kernel.domainname=$(domainname)" >>/etc/sysctl.conf
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
 if devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains; then
   newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 fi
-sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh)"
+if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
+  echo "kernel.domainname=$set_domainname" >>/etc/sysctl.conf
+fi
+sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs "https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh")"
 run_post "dfmgr install bash misc"
-
 ##################################################################################################################
 printf_head "Disabling services"
 ##################################################################################################################
@@ -1016,8 +1018,8 @@ echo "" >>/etc/fstab
 update-ca-trust && update-ca-trust extract
 #if using letsencrypt certificates
 chmod 600 /etc/named/certbot-update.conf
-if [ -d /etc/letsencrypt/live/$(domainname) ] || [ -d /etc/letsencrypt/live/domain ]; then
-  ln -s /etc/letsencrypt/live/$(domainname) /etc/letsencrypt/live/domain
+if [ -d "/etc/letsencrypt/live/$(domainname)" ] || [ -d "/etc/letsencrypt/live/domain" ]; then
+  ln -s "/etc/letsencrypt/live/$(domainname)" "/etc/letsencrypt/live/domain"
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
   cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
