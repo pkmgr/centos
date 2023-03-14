@@ -174,12 +174,12 @@ retrieve_repo_file() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
-  printf_green "Setting up ${grub_bin_name//-mkconfig/}"
   local cfg="" efi="" grub_cfg="" grub_efi="" grub_bin="" grub_bin_name=""
   grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' | grep '^' || false)"
   grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' | grep '^' || false)"
   grub_bin="$(builtin type -P grub-mkconfig 2>/dev/null || builtin type -P grub2-mkconfig 2>/dev/null || false)"
   grub_bin_name="$(basename "$grub_bin" 2>/dev/null)"
+  printf_green "Setting up ${grub_bin_name//-mkconfig/}"
   if [ -n "$grub_bin" ]; then
     rm_if_exists /boot/*rescue*
     if [ -n "$grub_cfg" ]; then
@@ -257,7 +257,7 @@ printf_head "Configuring cores for compiling"
 ##################################################################################################################
 numberofcores=$(grep -c ^processor /proc/cpuinfo)
 printf_yellow "Total cores avaliable: $numberofcores"
-if [ -f /etc/makepkg.conf ]; then
+if [ -f "/etc/makepkg.conf" ]; then
   if [ $numberofcores -gt 1 ]; then
     sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores + 1))'"/g' /etc/makepkg.conf
     sed -i 's/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T '"$numberofcores"' -z -)/g' /etc/makepkg.conf
@@ -284,12 +284,8 @@ install_pkg redhat-lsb
 install_pkg neovim
 install_pkg unzip
 install_pkg cronie-noanacron
-for rpms in echo cronie-anacron sendmail sendmail-cf; do
-  rpm -ev --nodeps $rpms &>/dev/null
-done
-for oci in 'oci*' 'cloud*' 'oracle*'; do
-  yum remove -yy "$oci" &>/dev/null
-done
+for rpms in echo cronie-anacron sendmail sendmail-cf; do rpm -ev --nodeps $rpms &>/dev/null; done
+for oci in 'oci*' 'cloud*' 'oracle*'; do yum remove -yy "$oci" &>/dev/null; done
 retrieve_repo_file
 rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
@@ -940,19 +936,20 @@ rm -Rf /etc/named* /var/named/* /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /va
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
-devnull git clone -q https://github.com/phpsysinfo/phpsysinfo /var/www/html/sysinfo
-devnull git clone -q https://github.com/casjay-base/centos /tmp/configs
+devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
+devnull git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
+devnull git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
 devnull find /tmp/configs -type f -iname "*.sh" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.pl" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$(hostname -f)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$(hostname -s)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" {} \;
+devnull mkdir -p /etc/rsync.d /var/log/named
 devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
 devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
-devnull mkdir -p /etc/rsync.d /var/log/named
 devnull chown -Rf named:named /etc/named* /var/named /var/log/named
-devnull chown -Rf apache:apache /var/www /usr/share/httpd
+devnull chown -Rf apache:apache "/var/www" "/usr/share/httpd"
 devnull sed -i "s#myserverdomainname#$(echo $HOSTNAME)#g" /etc/sysconfig/network
 devnull sed -i "s#mydomain#$(echo $HOSTNAME | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//')#g" /etc/sysconfig/network
 devnull domainname $(hostname -f | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//') && echo "kernel.domainname=$(domainname)" >>/etc/sysctl.conf
@@ -981,15 +978,16 @@ system_service_disable mdmonitor
 system_service_disable fail2ban
 system_service_disable shorewall
 system_service_disable shorewall6
+system_service_disable named
 system_service_disable dhcpd
 system_service_disable dhcpd6
 system_service_disable radvd
-
+system_service_disable smb
+system_service_disable nmb
 ##################################################################################################################
 printf_head "Enabling services"
 ##################################################################################################################
 system_service_enable sshd
-system_service_enable tor
 system_service_enable munin-node
 system_service_enable cockpit
 system_service_enable postfix
@@ -1000,7 +998,6 @@ system_service_enable rsyslog
 system_service_enable ntpd
 system_service_enable snmpd
 system_service_enable cockpit.socket
-system_service_enable named
 
 ##################################################################################################################
 printf_head "Cleaning up"
@@ -1031,11 +1028,11 @@ else
   find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
 fi
 bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
-if [ -f /var/lib/tor/hidden_service/hostname ]; then
-  cp -Rf /var/lib/tor/hidden_service/hostname /var/www/html/tor_hostname
+if [ -f "/var/lib/tor/hidden_service/default/hostname" ]; then
+  cat /var/lib/tor/hidden_service/*/hostname >"/var/www/html/tor_hostname" 2>/dev/null
 fi
 retrieve_repo_file
-chown -Rf apache:apache /var/www
+chown -Rf apache:apache "/var/www"
 history -c && history -w
 
 ##################################################################################################################
