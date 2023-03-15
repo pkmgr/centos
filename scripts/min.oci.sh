@@ -39,7 +39,7 @@ else
   . "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SCRIPT_OS="centos"
+SCRIPT_OS="AlmaLinux"
 SCRIPT_DESCRIBE="oci"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -258,12 +258,10 @@ if ! builtin type -P systemmgr &>/dev/null; then
   run_external "yum clean all"
 fi
 printf_green "Installer has been initialized"
-
 ##################################################################################################################
 printf_head "Disabling selinux"
 ##################################################################################################################
 disable_selinux
-
 ##################################################################################################################
 printf_head "Configuring cores for compiling"
 ##################################################################################################################
@@ -279,7 +277,6 @@ fi
 printf_head "Grabbing ssh key from github"
 ##################################################################################################################
 get_user_ssh_key
-
 ##################################################################################################################
 printf_head "Configuring the system"
 ##################################################################################################################
@@ -303,7 +300,6 @@ rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 run_external yum clean all
 run_external yum update -q -y --skip-broken
-
 ##################################################################################################################
 printf_head "Installing the packages for $SCRIPT_DESCRIBE"
 ##################################################################################################################
@@ -364,7 +360,6 @@ install_pkg munin-node
 install_pkg ncurses
 install_pkg ncurses-base
 install_pkg ncurses-libs
-install_pkg neofetch
 install_pkg net-tools
 install_pkg nginx
 install_pkg ntp
@@ -386,70 +381,25 @@ install_pkg php-pgsql
 install_pkg php-xml
 install_pkg pinentry
 install_pkg postfix
-install_pkg python
-install_pkg python2-acme
-install_pkg python2-certbot
-install_pkg python2-certbot-apache
-install_pkg python2-certbot-dns-rfc2136
-install_pkg python2-configargparse
-install_pkg python2-cryptography
-install_pkg python2-enum34
-install_pkg python2-funcsigs
-install_pkg python2-future
-install_pkg python2-idna
-install_pkg python2-josepy
-install_pkg python2-mock
-install_pkg python2-parsedatetime
-install_pkg python2-pbr
-install_pkg python2-pip
-install_pkg python2-psutil
-install_pkg python2-pyasn1
-install_pkg python2-pyrfc3339
-install_pkg python2-pysocks
-install_pkg python2-requests
-install_pkg python2-six
-install_pkg python-augeas
-install_pkg python-backports
-install_pkg python-backports-ssl_match_hostname
-install_pkg python-cffi
-install_pkg python-chardet
-install_pkg python-configobj
-install_pkg python-dateutil
-install_pkg python-decorator
-install_pkg python-deltarpm
-install_pkg python-dmidecode
-install_pkg python-dns
-install_pkg python-enum34
-install_pkg python-ethtool
-install_pkg python-firewall
-install_pkg python-gobject-base
-install_pkg python-idna
-install_pkg python-iniparse
-install_pkg python-inotify
-install_pkg python-ipaddress
-install_pkg python-IPy
-install_pkg python-kitchen
-install_pkg python-libs
-install_pkg python-ndg_httpsclient
-install_pkg python-perf
-install_pkg python-ply
-install_pkg python-pycparser
-install_pkg python-pycurl
-install_pkg python-pyudev
-install_pkg python-requests
-install_pkg python-requests-toolbelt
-install_pkg python-setuptools
-install_pkg python-six
-install_pkg python-slip
-install_pkg python-slip-dbus
-install_pkg python-srpm-macros
-install_pkg python-sssdconfig
-install_pkg python-urlgrabber
-install_pkg python-urllib3
-install_pkg python-virtualenvwrapper
-install_pkg python-zope-component
-install_pkg python-zope-event
-install_pkg python-zope-interface
+install_pkg python3-certbot-dns-rfc2136
+install_pkg python3-configargparse
+install_pkg python3-cryptography
+install_pkg python3-enum34
+install_pkg python3-funcsigs
+install_pkg python3-future
+install_pkg python3-idna
+install_pkg python3-josepy
+install_pkg python3-mock
+install_pkg python3-parsedatetime
+install_pkg python3-pbr
+install_pkg python3-pip
+install_pkg python3-psutil
+install_pkg python3-pyasn1
+install_pkg python3-pyrfc3339
+install_pkg python3-pysocks
+install_pkg python3-requests
+install_pkg python3-six
+install_pkg python3-virtualenv
 install_pkg readline
 install_pkg rootfiles
 install_pkg rsync

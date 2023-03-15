@@ -1000,7 +1000,6 @@ system_service_enable rsyslog
 system_service_enable ntpd
 system_service_enable snmpd
 system_service_enable cockpit.socket
-
 ##################################################################################################################
 printf_head "Cleaning up"
 ##################################################################################################################
