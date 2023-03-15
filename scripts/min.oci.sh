@@ -293,6 +293,7 @@ install_pkg redhat-lsb
 install_pkg vim
 install_pkg unzip
 install_pkg cronie-noanacron
+install_pkg bind-utils
 for rpms in echo chrony cronie-anacron sendmail sendmail-cf; do rpm -ev --nodeps $rpms &>/dev/null; done
 for oci in 'oci*' 'cloud*' 'oracle*'; do yum remove -yy "$oci" &>/dev/null; done
 retrieve_repo_file
