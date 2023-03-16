@@ -352,8 +352,15 @@ install_pkg make
 install_pkg man-db
 install_pkg man-pages
 install_pkg mlocate
+install_pkg mod_fcgid
 install_pkg mod_geoip
+install_pkg mod_http2
+install_pkg mod_maxminddb
+install_pkg mod_perl
+install_pkg mod_ssl
 install_pkg mod_wsgi
+install_pkg mod_proxy_html
+install_pkg mod_proxy_uwsgi
 install_pkg mrtg
 install_pkg munin
 install_pkg munin-common
