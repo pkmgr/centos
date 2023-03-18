@@ -4,10 +4,10 @@
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.com
 # @@License          :  WTFPL
-# @@ReadME           :  min.oci.sh --help
+# @@ReadME           :  min.sh --help
 # @@Copyright        :  Copyright: (c) 2022 Jason Hempstead, Casjays Developments
 # @@Created          :  Monday, Nov 07, 2022 12:39 EST
-# @@File             :  default.oci.sh
+# @@File             :  min.sh
 # @@Description      :  Script to setup OracleCloud for CentOS/AlmaLinux/RockyLinux
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
@@ -42,7 +42,7 @@ else
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_OS="AlmaLinux"
-SCRIPT_DESCRIBE="oci"
+SCRIPT_DESCRIBE="minimal"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_NAME="$APPNAME"
@@ -298,7 +298,6 @@ install_pkg unzip
 install_pkg cronie-noanacron
 install_pkg bind-utils
 for rpms in echo chrony cronie-anacron sendmail sendmail-cf; do rpm -ev --nodeps $rpms &>/dev/null; done
-for oci in 'oci*' 'cloud*' 'oracle*'; do yum remove -yy "$oci" &>/dev/null; done
 retrieve_repo_file
 rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
