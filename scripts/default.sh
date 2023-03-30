@@ -132,7 +132,7 @@ run_init_check() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 printf_head_clear() { clear && printf_head "$*"; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
-rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos" || true; }
+rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos.d"/* || true; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
 domain_name() { hostname -f | awk -F'.' '{$1="";OFS="." ; print $0}' | sed 's/^.//;s| |.|g' | grep '^'; }
