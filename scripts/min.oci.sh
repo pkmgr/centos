@@ -268,7 +268,6 @@ else
   run_init_check
   retrieve_repo_file || printf_exit "The script has failed to initialize"
   system_service_enable vnstat && systemctl start vnstat &>/dev/null
-  run_external "yum clean all"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
@@ -300,8 +299,7 @@ get_user_ssh_key
 printf_head "Configuring the system"
 ##################################################################################################################
 run_external timedatectl set-timezone America/New_York
-run_external _yum clean all
-run_external _yum update -q -yy --skip-broken
+run_external yum update -q -yy --skip-broken
 install_pkg net-tools
 install_pkg wget
 install_pkg curl
@@ -313,13 +311,12 @@ install_pkg vim
 install_pkg unzip
 install_pkg cronie-noanacron
 install_pkg bind-utils
-for rpms in echo chrony cronie-anacron sendmail sendmail-cf; do rpm -ev --nodeps $rpms &>/dev/null; done
 for oci in 'oci*' 'cloud*' 'oracle*'; do __yum remove -yy -q "$oci" &>/dev/null; done
+for rpms in echo chrony cronie-anacron sendmail sendmail-cf; do rpm -ev --nodeps $rpms &>/dev/null; done
 retrieve_repo_file
 rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
-run_external __yum clean all
-run_external __yum update -q -yy --skip-broken
+run_external yum update -q -yy --skip-broken
 ##################################################################################################################
 printf_head "Installing the packages for $RELEASE_NAME"
 ##################################################################################################################
@@ -535,7 +532,7 @@ system_service_enable nginx
 printf_head "Setting up ssl certificates"
 ##################################################################################################################
 update-ca-trust && update-ca-trust extract
-#if using letsencrypt certificates
+# If using letsencrypt certificates
 [ -f "/etc/certbot/dns.conf" ] && chmod 600 "/etc/certbot/dns.conf"
 if [ -d "/etc/letsencrypt/live/$(domainname)" ] || [ -d "/etc/letsencrypt/live/domain" ]; then
   if [ ! -e "/etc/letsencrypt/live/domain" ]; then
@@ -546,7 +543,7 @@ if [ -d "/etc/letsencrypt/live/$(domainname)" ] || [ -d "/etc/letsencrypt/live/d
   cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
   cat /etc/letsencrypt/live/domain/privkey.pem >>/etc/cockpit/ws-certs.d/1-my-cert.cert
 else
-  #If using self-signed certificates
+  # If using self-signed certificates
   find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
   find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
 fi
