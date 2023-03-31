@@ -268,8 +268,7 @@ else
   run_init_check
   retrieve_repo_file || printf_exit "The script has failed to initialize"
   system_service_enable vnstat && systemctl start vnstat &>/dev/null
-  printf '%s\n' "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
-  run_external "__yum clean all"
+  run_external "yum clean all"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
@@ -484,6 +483,7 @@ printf_head "Installer version: $(retrieve_version_file)"
 mkdir -p "/etc/casjaysdev/updates/versions"
 echo "$VERSION" >"/etc/casjaysdev/updates/versions/configs.txt"
 echo "$(date +'Installed on %y-%m-%d at %H:%M')" >"/etc/casjaysdev/updates/versions/installed.txt"
+echo "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
 chmod -Rf 664 "/etc/casjaysdev/updates/versions/configs.txt"
 chmod -Rf 664 "/etc/casjaysdev/updates/versions/installed.txt"
 

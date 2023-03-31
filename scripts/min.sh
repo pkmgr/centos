@@ -268,7 +268,7 @@ else
   run_init_check
   retrieve_repo_file || printf_exit "The script has failed to initialize"
   system_service_enable vnstat && systemctl start vnstat &>/dev/null
-  printf '%s\n' "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
+  echo "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
   run_external "__yum clean all"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
@@ -541,7 +541,9 @@ update-ca-trust && update-ca-trust extract
 #if using letsencrypt certificates
 [ -f "/etc/certbot/dns.conf" ] && chmod 600 "/etc/certbot/dns.conf"
 if [ -d "/etc/letsencrypt/live/$(domainname)" ] || [ -d "/etc/letsencrypt/live/domain" ]; then
-  ln -s "/etc/letsencrypt/live/$(domainname)" "/etc/letsencrypt/live/domain"
+  if [ ! -e "/etc/letsencrypt/live/domain" ]; then
+    ln -s "/etc/letsencrypt/live/$(domainname)" "/etc/letsencrypt/live/domain"
+  fi
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
   cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert

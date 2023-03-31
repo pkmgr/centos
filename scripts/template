@@ -268,14 +268,13 @@ else
   run_init_check
   retrieve_repo_file || printf_exit "The script has failed to initialize"
   system_service_enable vnstat && systemctl start vnstat &>/dev/null
-  printf '%s\n' "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
-  run_external "__yum clean all"
+  run_external "yum clean all"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
   run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr --config
   run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr update scripts
-  run_external "__yum clean all"
+  run_external "yum clean all"
 fi
 printf_green "Installer has been initialized"
 ##################################################################################################################
@@ -346,6 +345,25 @@ system_service_enable postfix
 system_service_enable uptimed
 system_service_enable cockpit.socket
 ##################################################################################################################
+printf_head "Setting up ssl certificates"
+##################################################################################################################
+update-ca-trust && update-ca-trust extract
+#if using letsencrypt certificates
+[ -f "/etc/certbot/dns.conf" ] && chmod 600 "/etc/certbot/dns.conf"
+if [ -d "/etc/letsencrypt/live/$(domainname)" ] || [ -d "/etc/letsencrypt/live/domain" ]; then
+  if [ ! -e "/etc/letsencrypt/live/domain" ]; then
+    ln -s "/etc/letsencrypt/live/$(domainname)" "/etc/letsencrypt/live/domain"
+  fi
+  find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
+  find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
+  cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
+  cat /etc/letsencrypt/live/domain/privkey.pem >>/etc/cockpit/ws-certs.d/1-my-cert.cert
+else
+  #If using self-signed certificates
+  find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
+  find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
+fi
+##################################################################################################################
 printf_head "Cleaning up"
 ##################################################################################################################
 history -c && history -w && history -r && history -w
@@ -355,6 +373,7 @@ printf_head "Installer version: $(retrieve_version_file)"
 mkdir -p "/etc/casjaysdev/updates/versions"
 echo "$VERSION" >"/etc/casjaysdev/updates/versions/configs.txt"
 echo "$(date +'Installed on %y-%m-%d at %H:%M')" >"/etc/casjaysdev/updates/versions/installed.txt"
+echo "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
 chmod -Rf 664 "/etc/casjaysdev/updates/versions/configs.txt"
 chmod -Rf 664 "/etc/casjaysdev/updates/versions/installed.txt"
 ##################################################################################################################
