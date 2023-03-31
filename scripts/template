@@ -173,16 +173,15 @@ retrieve_repo_file() {
     return
   fi
   if [ -n "$RELEASE_FILE" ]; then
-    yum clean all &>/dev/null
-    __backup_repo_files
-    __rm_repo_files "$YUM_DELETE"
-    __save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
-    __restore_repo_files "almalinux"
+    __yum clean all &>/dev/null
+    backup_repo_files
+    rm_repo_files "$YUM_DELETE"
+    save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
     if [ "$ARCH" != "x86_64" ]; then
       sed -i 's|http://cdn.remirepo.net/enterprise/$releasever/safe/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/rhel/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
       sed -i 's|https://rpms.remirepo.net/enterprise/$releasever/php74/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/rhel/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
     fi
-    execute "__yum makecache" "Updating the package cache" || statusCode=1
+    __yum makecache &>/dev/null || statusCode=1
   fi
   return $statusCode
 }
