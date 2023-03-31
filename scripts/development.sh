@@ -205,7 +205,7 @@ retrieve_repo_file() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
-  printf_green "Setting up ${grub_bin_name//-mkconfig/}"
+  printf_green "Initializing grub configuration"
   local cfg="" efi="" grub_cfg="" grub_efi="" grub_bin="" grub_bin_name=""
   grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' | grep '^' || false)"
   grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' | grep '^' || false)"
