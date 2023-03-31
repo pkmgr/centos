@@ -95,12 +95,18 @@ install_pkg() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 detect_selinux() {
-  [ -f "$(type -P selinuxenabled 2>/dev/null)" ] && return 0 || return 1
+  if [ -f "/etc/selinux/config" ]; then
+    grep -s 'SELINUX=' "/etc/selinux/config" | grep -q 'enabled' || return 1
+  elif [ -f "$(type -P selinuxenabled 2>/dev/null)" ]; then
+    selinuxenabled && return 1 || return 0
+  else
+    return 0
+  fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 disable_selinux() {
   if detect_selinux; then
-    printf_blue "Disabling selinux"
+    printf_blue "selinux is now disabled"
     devnull setenforce 0
     sed -i 's|SELINUX=.*|SELINUX=disabled|g' "/etc/selinux/config"
   else
