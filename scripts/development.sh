@@ -107,8 +107,18 @@ detect_selinux() {
 disable_selinux() {
   if detect_selinux; then
     printf_blue "selinux is now disabled"
-    devnull setenforce 0
-    sed -i 's|SELINUX=.*|SELINUX=disabled|g' "/etc/selinux/config"
+    if [ -f "/etc/selinux/config" ]; then
+      devnull setenforce 0
+      sed -i 's|SELINUX=.*|SELINUX=disabled|g' "/etc/selinux/config"
+    else
+      mkdir -p "/etc/selinux"
+      cat <<EOF | tee "/etc/selinux/config"
+#
+SELINUX=disabled
+SELINUXTYPE=targeted
+
+EOF
+    fi
   else
     printf_green "selinux is already disabled"
   fi
