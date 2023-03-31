@@ -245,7 +245,7 @@ fix_network_device_name() {
   find "$1" -type f -exec sed -i 's|eth0|'$device'|g' {} +
 }
 ##################################################################################################################
-printf_clear "Initializing the installer for $SCRIPT_NAME"
+printf_clear "Initializing the installer for $RELEASE_NAME using $SCRIPT_DESCRIBE script"
 ##################################################################################################################
 [ -d "/etc/casjaysdev/updates/versions" ] || mkdir -p "/etc/casjaysdev/updates/versions"
 if [ -f "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt" ]; then
@@ -321,7 +321,7 @@ rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 run_external __yum clean all
 run_external __yum update -q -yy --skip-broken
 ##################################################################################################################
-printf_head "Installing the packages for $RELEASE_NAME using $SCRIPT_DESCRIBE script"
+printf_head "Installing the packages for $RELEASE_NAME"
 ##################################################################################################################
 install_pkg attr
 install_pkg authconfig
