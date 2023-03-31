@@ -131,7 +131,7 @@ get_user_ssh_key() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_init_check() {
   __yum install epel-release -yy -q && __yum makecache || true
-  for pkg in git curl wget vnstat; do
+  for pkg in sudo git curl wget vnstat; do
     command -v $pkg &>/dev/null || install_pkg $pkg || printf_exit "Failed to install $pkg"
   done
 }
