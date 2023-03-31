@@ -48,6 +48,9 @@ SCRIPT_NAME="${SCRIPT_NAME%.*}"
 RELEASE_VER="$(grep --no-filename -s 'VERSION_ID=' /etc/*-release | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}' | grep '^')"
 RELEASE_NAME="$(grep --no-filename -s '^NAME=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g;s| .*||g' | tr '[:upper:]' '[:lower:]' | grep '^')"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ARCH="$(uname -m | tr '[:upper:]' '[:lower:]')"
+BACKUP_DIR="$HOME/Documents/backups/$(date +'%Y/%m/%d')"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 grep --no-filename -sE '^ID=|^ID_LIKE=|^NAME=' /etc/*-release | grep -qiwE "$SCRIPT_OS" && true || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$1" == "--help" ] && printf_exit "${GREEN}${SCRIPT_DESCRIBE} installer for $SCRIPT_OS${NC}"
@@ -130,9 +133,11 @@ run_init_check() {
   done
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__yum() { yum "$@" $yum_opts -yy -q &>/dev/null || return 1; }
 printf_head_clear() { clear && printf_head "$*"; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
-rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos.d"/* || true; }
+backup_repo_files() { cp -Rf "/etc/yum.repos.d/." "$BACKUP_DIR" 2>/dev/null || return 0; }
+rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos.d"/* &>/dev/null || return 0; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
 domain_name() { hostname -f | awk -F'.' '{$1="";OFS="." ; print $0}' | sed 's/^.//;s| |.|g' | grep '^'; }
@@ -148,7 +153,7 @@ rm_if_exists() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 retrieve_repo_file() {
-  local RELEASE_FILE IFS
+  local statusCode="0"
   if [ "$RELEASE_NAME" = "centos" ] && [ "$(hostname -s)" != "pbx" ]; then
     if [ "$RELEASE_VER" -ge "9" ]; then
       YUM_DELETE="no"
@@ -160,17 +165,25 @@ retrieve_repo_file() {
       YUM_DELETE="yes"
       RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
     else
-      return
+      YUM_DELETE="no"
+      RELEASE_FILE=""
     fi
   else
-    YUM_DELETE="no"
+    return
   fi
   if [ -n "$RELEASE_FILE" ]; then
     yum clean all &>/dev/null
-    rm_repo_files "$YUM_DELETE"
-    save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
-    execute "yum makecache -y -q &>/dev/null" "Updating the package cache"
+    __backup_repo_files
+    __rm_repo_files "$YUM_DELETE"
+    __save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
+    __restore_repo_files "almalinux"
+    if [ "$ARCH" != "x86_64" ]; then
+      sed -i 's|http://cdn.remirepo.net/enterprise/$releasever/safe/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/rhel/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
+      sed -i 's|https://rpms.remirepo.net/enterprise/$releasever/php74/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/rhel/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
+    fi
+    execute "__yum makecache" "Updating the package cache" || statusCode=1
   fi
+  return $statusCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
