@@ -7,8 +7,8 @@
 # @@ReadME           :  min.oci.sh --help
 # @@Copyright        :  Copyright: (c) 2022 Jason Hempstead, Casjays Developments
 # @@Created          :  Monday, Nov 07, 2022 12:39 EST
-# @@File             :  default.oci.sh
-# @@Description      :  Script to setup OracleCloud for CentOS/AlmaLinux/RockyLinux
+# @@File             :  min.oci.sh
+# @@Description      :  Script to setup min.oci for CentOS/AlmaLinux/RockyLinux
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
 # @@Other            :
@@ -16,13 +16,11 @@
 # @@Terminal App     :  no
 # @@sudo/root        :  no
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-APPNAME="default"
+APPNAME="min.oci"
 VERSION="202211071239-git"
 USER="${SUDO_USER:-${USER}}"
 HOME="${USER_HOME:-${HOME}}"
 SRC_DIR="${BASH_SOURCE%/*}"
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-export PATH="/usr/local/share/CasjaysDev/scripts/bin:$PATH"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set bash options
 if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
@@ -42,7 +40,7 @@ else
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_OS="AlmaLinux"
-SCRIPT_DESCRIBE="oci"
+SCRIPT_DESCRIBE="Minimal OracleCloud"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_NAME="$APPNAME"
@@ -111,8 +109,9 @@ disable_selinux() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 get_user_ssh_key() {
-  [ -n "$GITHUB_USER" ] && local ssh_key="" || return 0
-  printf_green "Grabbing ssh key from $GITHUB_USER for $USER"
+  [ -n "$GITHUB_USER" ] || return 0
+  printf_green "Grabbing ssh key: $GITHUB_USER for $USER"
+  local ssh_key=""
   ssh_key="$(curl -q -LSsf "https://github.com/$GITHUB_USER.keys" 2>/dev/null | grep '^' || echo '')"
   if [ -n "$ssh_key" ]; then
     [ -d "/root/.ssh" ] || mkdir -p "/root/.ssh"
@@ -131,17 +130,13 @@ get_user_ssh_key() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_init_check() {
-  [ -f "/etc/yum/pluginconf.d/subscription-manager.conf" ] && echo "" >/etc/yum/pluginconf.d/subscription-manager.conf
-  yum install -yy epel-release &>/dev/null && yum makecache &>/dev/null || printf_exit "The script has failed to initialize"
+  __yum install epel-release && __yum makecache || true
   for pkg in git curl wget vnstat; do
     command -v $pkg &>/dev/null || install_pkg $pkg || printf_exit "Failed to install $pkg"
   done
-  [ -d "/usr/local/share/CasjaysDev/scripts" ] || git clone -q "https://github.com/casjay-dotfiles/scripts" "/usr/local/share/CasjaysDev/scripts"
-  yum clean all &>/dev/null
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__yum() { yum "$@" $yum_opts -yy -q &>/dev/null || return 1; }
-printf_head_clear() { clear && printf_head "$*"; }
+__yum() { yum "$@" $yum_opts &>/dev/null || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 backup_repo_files() { cp -Rf "/etc/yum.repos.d/." "$BACKUP_DIR" 2>/dev/null || return 0; }
 rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos.d"/* &>/dev/null || return 0; }
@@ -150,13 +145,15 @@ save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null 
 domain_name() { hostname -f | awk -F'.' '{$1="";OFS="." ; print $0}' | sed 's/^.//;s| |.|g' | grep '^'; }
 retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-printf_head_clear() {
+printf_head() {
+  printf '%b##################################################\n' "$CYAN"
+  printf '%b%s%b\n' $GREEN "$*" $CYAN
+  printf '##################################################%b\n' $NC
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+printf_clear() {
   clear
-  if type printf_head &>/dev/null; then
-    printf_head "$*"
-  else
-    printf '##################################################\n%s\n##################################################\n' "$*"
-  fi
+  printf_head "$*"
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 rm_if_exists() {
@@ -188,7 +185,7 @@ retrieve_repo_file() {
     return
   fi
   if [ -n "$RELEASE_FILE" ]; then
-    yum clean all &>/dev/null
+    __yum clean all &>/dev/null
     backup_repo_files
     rm_repo_files "$YUM_DELETE"
     save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
@@ -202,12 +199,12 @@ retrieve_repo_file() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
+  printf_green "Setting up ${grub_bin_name//-mkconfig/}"
   local cfg="" efi="" grub_cfg="" grub_efi="" grub_bin="" grub_bin_name=""
   grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' | grep '^' || false)"
   grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' | grep '^' || false)"
   grub_bin="$(builtin type -P grub-mkconfig 2>/dev/null || builtin type -P grub2-mkconfig 2>/dev/null || false)"
   grub_bin_name="$(basename "$grub_bin" 2>/dev/null)"
-  printf_green "Setting up ${grub_bin_name//-mkconfig/}"
   if [ -n "$grub_bin" ]; then
     rm_if_exists /boot/*rescue*
     if [ -n "$grub_cfg" ]; then
@@ -242,15 +239,8 @@ fix_network_device_name() {
   find "$1" -type f -exec sed -i 's|eth0|'$device'|g' {} +
 }
 ##################################################################################################################
-printf_head_clear "Initializing the installer for $SCRIPT_NAME"
+printf_clear "Initializing the installer for $SCRIPT_NAME"
 ##################################################################################################################
-shift $#
-[ -n "$(type -P git)" ] || yum install -y git &>/dev/null
-if [ -d "/usr/local/share/CasjaysDev/scripts" ]; then
-  run_external "git -C /usr/local/share/CasjaysDev/scripts pull"
-else
-  run_external "git clone "https://github.com/casjay-dotfiles/scripts" /usr/local/share/CasjaysDev/scripts"
-fi
 [ -d "/etc/casjaysdev/updates/versions" ] || mkdir -p "/etc/casjaysdev/updates/versions"
 if [ -f "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt" ]; then
   printf_red "$(<"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt")"
@@ -263,16 +253,22 @@ elif [ -f "/etc/casjaysdev/updates/versions/installed.txt" ]; then
   printf_red "/etc/casjaysdev/updates/versions/installed.txt"
   exit 1
 else
-  run_init_check && retrieve_repo_file || printf_exit "The script has failed to initialize"
+  run_init_check
+  retrieve_repo_file || printf_exit "The script has failed to initialize"
   system_service_enable vnstat && systemctl start vnstat &>/dev/null
   printf '%s\n' "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
-  run_external "yum clean all"
+  run_external "__yum clean all"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
+  if [ -d "/usr/local/share/CasjaysDev/scripts" ]; then
+    run_external "git -C /usr/local/share/CasjaysDev/scripts pull"
+  else
+    run_external "git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts"
+  fi
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
   run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr --config
   run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr update scripts
-  run_external "yum clean all"
+  run_external "__yum clean all"
 fi
 printf_green "Installer has been initialized"
 ##################################################################################################################
@@ -284,7 +280,7 @@ printf_head "Configuring cores for compiling"
 ##################################################################################################################
 numberofcores=$(grep -c ^processor /proc/cpuinfo)
 printf_yellow "Total cores avaliable: $numberofcores"
-if [ -f "/etc/makepkg.conf" ]; then
+if [ -f /etc/makepkg.conf ]; then
   if [ $numberofcores -gt 1 ]; then
     sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores + 1))'"/g' /etc/makepkg.conf
     sed -i 's/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T '"$numberofcores"' -z -)/g' /etc/makepkg.conf
@@ -298,8 +294,8 @@ get_user_ssh_key
 printf_head "Configuring the system"
 ##################################################################################################################
 run_external timedatectl set-timezone America/New_York
-run_external yum clean all
-run_external yum update -q -y --skip-broken
+run_external _yum clean all
+run_external _yum update -q -yy --skip-broken
 install_pkg net-tools
 install_pkg wget
 install_pkg curl
@@ -312,15 +308,16 @@ install_pkg unzip
 install_pkg cronie-noanacron
 install_pkg bind-utils
 for rpms in echo chrony cronie-anacron sendmail sendmail-cf; do rpm -ev --nodeps $rpms &>/dev/null; done
-for oci in 'oci*' 'cloud*' 'oracle*'; do yum remove -yy "$oci" &>/dev/null; done
+for oci in 'oci*' 'cloud*' 'oracle*'; do __yum remove -yy -q "$oci" &>/dev/null; done
 retrieve_repo_file
 rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
-run_external yum clean all
-run_external yum update -q -y --skip-broken
+run_external __yum clean all
+run_external __yum update -q -yy --skip-broken
 ##################################################################################################################
 printf_head "Installing the packages for $SCRIPT_DESCRIBE"
 ##################################################################################################################
+
 install_pkg awffull
 install_pkg awstats
 install_pkg basesystem
@@ -571,7 +568,7 @@ retrieve_repo_file
 chown -Rf apache:apache "/var/www"
 history -c && history -w
 ##################################################################################################################
-printf_info "Installer version: $(retrieve_version_file)"
+printf_head "Installer version: $(retrieve_version_file)"
 ##################################################################################################################
 mkdir -p "/etc/casjaysdev/updates/versions"
 echo "$VERSION" >"/etc/casjaysdev/updates/versions/configs.txt"

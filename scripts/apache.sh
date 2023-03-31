@@ -39,7 +39,7 @@ else
   . "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SCRIPT_OS="centos"
+SCRIPT_OS="AlmaLinux"
 SCRIPT_DESCRIBE="apache"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -109,8 +109,9 @@ disable_selinux() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 get_user_ssh_key() {
-  [ -n "$GITHUB_USER" ] && local ssh_key="" || return 0
-  printf_green "Grabbing ssh key from $GITHUB_USER for $USER"
+  [ -n "$GITHUB_USER" ] || return 0
+  printf_green "Grabbing ssh key: $GITHUB_USER for $USER"
+  local ssh_key=""
   ssh_key="$(curl -q -LSsf "https://github.com/$GITHUB_USER.keys" 2>/dev/null | grep '^' || echo '')"
   if [ -n "$ssh_key" ]; then
     [ -d "/root/.ssh" ] || mkdir -p "/root/.ssh"
@@ -129,13 +130,13 @@ get_user_ssh_key() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_init_check() {
+  __yum install epel-release && __yum makecache || true
   for pkg in git curl wget vnstat; do
     command -v $pkg &>/dev/null || install_pkg $pkg || printf_exit "Failed to install $pkg"
   done
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__yum() { yum "$@" $yum_opts -yy -q &>/dev/null || return 1; }
-printf_head_clear() { clear && printf_head "$*"; }
+__yum() { yum "$@" $yum_opts &>/dev/null || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 backup_repo_files() { cp -Rf "/etc/yum.repos.d/." "$BACKUP_DIR" 2>/dev/null || return 0; }
 rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos.d"/* &>/dev/null || return 0; }
@@ -143,6 +144,17 @@ run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || ret
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
 domain_name() { hostname -f | awk -F'.' '{$1="";OFS="." ; print $0}' | sed 's/^.//;s| |.|g' | grep '^'; }
 retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+printf_head() {
+  printf '%b##################################################\n' "$CYAN"
+  printf '%b%s%b\n' $GREEN "$*" $CYAN
+  printf '##################################################%b\n' $NC
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+printf_clear() {
+  clear
+  printf_head "$*"
+}
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 rm_if_exists() {
   local file_loc=("$@") && shift $#
@@ -173,7 +185,7 @@ retrieve_repo_file() {
     return
   fi
   if [ -n "$RELEASE_FILE" ]; then
-    yum clean all &>/dev/null
+    __yum clean all &>/dev/null
     backup_repo_files
     rm_repo_files "$YUM_DELETE"
     save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
@@ -227,7 +239,7 @@ fix_network_device_name() {
   find "$1" -type f -exec sed -i 's|eth0|'$device'|g' {} +
 }
 ##################################################################################################################
-printf_head_clear "Initializing the installer for $SCRIPT_NAME"
+printf_clear "Initializing the installer for $SCRIPT_NAME"
 ##################################################################################################################
 [ -d "/etc/casjaysdev/updates/versions" ] || mkdir -p "/etc/casjaysdev/updates/versions"
 if [ -f "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt" ]; then
@@ -245,7 +257,7 @@ else
   retrieve_repo_file || printf_exit "The script has failed to initialize"
   system_service_enable vnstat && systemctl start vnstat &>/dev/null
   printf '%s\n' "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
-  run_external "yum clean all"
+  run_external "__yum clean all"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
   if [ -d "/usr/local/share/CasjaysDev/scripts" ]; then
@@ -256,15 +268,13 @@ if ! builtin type -P systemmgr &>/dev/null; then
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
   run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr --config
   run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr update scripts
-  run_external "yum clean all"
+  run_external "__yum clean all"
 fi
 printf_green "Installer has been initialized"
-
 ##################################################################################################################
 printf_head "Disabling selinux"
 ##################################################################################################################
 disable_selinux
-
 ##################################################################################################################
 printf_head "Configuring cores for compiling"
 ##################################################################################################################
@@ -280,12 +290,12 @@ fi
 printf_head "Grabbing ssh key from github"
 ##################################################################################################################
 get_user_ssh_key
-
 ##################################################################################################################
 printf_head "Configuring the system"
 ##################################################################################################################
-run_external yum clean all
-run_external yum update -q -y --skip-broken
+run_external timedatectl set-timezone America/New_York
+run_external _yum clean all
+run_external _yum update -q -yy --skip-broken
 install_pkg net-tools
 install_pkg wget
 install_pkg curl
@@ -293,21 +303,17 @@ install_pkg git
 install_pkg nail
 install_pkg e2fsprogs
 install_pkg redhat-lsb
-install_pkg neovim
+install_pkg vim
 install_pkg unzip
-rm_if_exists /tmp/dotfiles
-run_external timedatectl set-timezone America/New_York
 install_pkg cronie-noanacron
-for rpms in echo cronie-anacron sendmail sendmail-cf; do
-  rpm -ev --nodeps $rpms &>/dev/null
-done
+install_pkg bind-utils
+for rpms in echo chrony cronie-anacron sendmail sendmail-cf; do rpm -ev --nodeps $rpms &>/dev/null; done
+for oci in 'oci*' 'cloud*' 'oracle*'; do __yum remove -yy -q "$oci" &>/dev/null; done
+retrieve_repo_file
+rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
-if [ "$(hostname -s)" != "pbx" ]; then
-  retrieve_repo_file
-fi
-run_external yum clean all
-run_external yum update -q -y --skip-broken
-
+run_external __yum clean all
+run_external __yum update -q -yy --skip-broken
 ##################################################################################################################
 printf_head "Installing the packages for $SCRIPT_DESCRIBE"
 ##################################################################################################################
@@ -364,13 +370,13 @@ install_pkg python2-certbot-dns-rfc2136
 install_pkg quota
 install_pkg webalizer
 ##################################################################################################################
-printf_head "Fixing packages"
+printf_head "Setting up grub"
 ##################################################################################################################
 run_grub
-rm -Rf /etc/named* /var/named/* /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf /tmp/configs
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
+rm -Rf /etc/named* /var/named/* /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf /tmp/configs
 set_domainname="$(hostname -f | awk -F '.' '{$1="";OFS="." ; print $0}' | sed 's/^.//' | tr ' ' '.' | grep '^' || hostname -f)"
 devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
 devnull git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
@@ -466,7 +472,7 @@ chown -Rf apache:apache /var/www
 history -c && history -w
 
 ##################################################################################################################
-printf_info "Installer version: $(retrieve_version_file)"
+printf_head "Installer version: $(retrieve_version_file)"
 ##################################################################################################################
 mkdir -p "/etc/casjaysdev/updates/versions"
 echo "$VERSION" >"/etc/casjaysdev/updates/versions/configs.txt"
