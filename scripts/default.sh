@@ -69,7 +69,7 @@ __dnf_yum() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 test_pkg() {
   for pkg in "$@"; do
-    if rpm -q "$pkg" &>/dev/null; then
+    if rpm -q "$pkg" | grep -v 'is not installed' | grep -q '^'; then
       printf_blue "[ ✔ ] $pkg is already installed"
       return 1
     else
@@ -315,7 +315,7 @@ rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 run_external __yum clean all
 run_external __yum update -q -yy --skip-broken
 ##################################################################################################################
-printf_head "Installing the packages for $SCRIPT_DESCRIBE"
+printf_head "Installing the packages for $RELEASE_NAME using $SCRIPT_DESCRIBE script"
 ##################################################################################################################
 install_pkg attr
 install_pkg authconfig
