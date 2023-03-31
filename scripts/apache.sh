@@ -138,9 +138,15 @@ get_user_ssh_key() {
 run_init_check() {
   __yum install epel-release -yy -q && __yum makecache || true
   for pkg in sudo git curl wget vnstat; do
-    command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && install_pkg $pkg &>/dev/null || return 1; } || printf_exit "Failed to install $pkg"
+    command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && __yum install -yy -q $pkg &>/dev/null || return 1; } || printf_exit "Failed to install $pkg"
   done
+  if [ -d "/usr/local/share/CasjaysDev/scripts" ]; then
+    git -C /usr/local/share/CasjaysDev/scripts pull -q
+  else
+    git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts -q
+  fi
 }
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __yum() { yum "$@" $yum_opts &>/dev/null || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
@@ -266,11 +272,6 @@ else
   run_external "__yum clean all"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
-  if [ -d "/usr/local/share/CasjaysDev/scripts" ]; then
-    run_external "git -C /usr/local/share/CasjaysDev/scripts pull"
-  else
-    run_external "git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts"
-  fi
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
   run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr --config
   run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr update scripts
