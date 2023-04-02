@@ -147,7 +147,7 @@ get_user_ssh_key() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_init_check() {
-  { printf '%b\n' "${YELLOW}Updating cache and installing epel-release${NC}" && yum makecache && __dnf_yum install epel-release -yy -q; } || true
+  { printf '%b\n' "${YELLOW}Updating cache and installing epel-release${NC}" && yum makecache &>/dev/null && __dnf_yum install epel-release -yy -q; } || true
   for pkg in sudo git curl wget vnstat; do
     command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && __dnf_yum install -yy -q $pkg &>/dev/null || return 1; } || printf_exit "Failed to install $pkg"
   done
