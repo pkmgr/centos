@@ -61,9 +61,10 @@ system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && ex
 system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __dnf_yum() {
-  local rhel_pkgmgr=""
+  local rhel_pkgmgr="" opts="--skip-broken"
   rhel_pkgmgr="$(builtin type -P dnf || builtin type -P yum || false)"
-  $rhel_pkgmgr "$@" || false
+  [ "$RELEASE_VER" -lt 8 ] || opts="--allowerasing --nobest --skip-broken"
+  $rhel_pkgmgr $opts "$@" || false
   return $?
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -86,7 +87,7 @@ remove_pkg() {
 install_pkg() {
   local statusCode=0
   if test_pkg "$*"; then
-    execute "__dnf_yum install -q -y --skip-broken $*" "Installing: $*"
+    execute "__dnf_yum install -q -yy $*" "Installing: $*"
     test_pkg "$*" &>/dev/null && statusCode=1 || statusCode=0
   else
     statusCode=0
@@ -146,7 +147,7 @@ get_user_ssh_key() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_init_check() {
-  __yum install epel-release -yy -q && __yum makecache || true
+  { printf '%b\n' "${YELLOW}Updating cache and installing epel-release${NC}" && __yum makecache && __yum install epel-release -yy -q; } || true
   for pkg in sudo git curl wget vnstat; do
     command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && __yum install -yy -q $pkg &>/dev/null || return 1; } || printf_exit "Failed to install $pkg"
   done
@@ -207,6 +208,7 @@ retrieve_repo_file() {
     return
   fi
   if [ -n "$RELEASE_FILE" ]; then
+    printf '%b\n' "${YELLOW}Updating yum repos: This may take some time${NC}"
     __yum clean all &>/dev/null
     backup_repo_files
     rm_repo_files "$YUM_DELETE"
@@ -217,6 +219,7 @@ retrieve_repo_file() {
     fi
     __yum makecache &>/dev/null || statusCode=1
   fi
+  [ "$statusCode" -ne 0 ] || printf '%b\n' "${YELLOW}Done updating repos${NC}"
   return $statusCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
