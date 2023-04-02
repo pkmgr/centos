@@ -147,15 +147,16 @@ get_user_ssh_key() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_init_check() {
-  { printf '%b\n' "${YELLOW}Updating cache and installing epel-release${NC}" && __yum makecache && __yum install epel-release -yy -q; } || true
+  { printf '%b\n' "${YELLOW}Updating cache and installing epel-release${NC}" && yum makecache && __dnf_yum install epel-release -yy -q; } || true
   for pkg in sudo git curl wget vnstat; do
-    command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && __yum install -yy -q $pkg &>/dev/null || return 1; } || printf_exit "Failed to install $pkg"
+    command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && __dnf_yum install -yy -q $pkg &>/dev/null || return 1; } || printf_exit "Failed to install $pkg"
   done
   if [ -d "/usr/local/share/CasjaysDev/scripts" ]; then
     git -C /usr/local/share/CasjaysDev/scripts pull -q
   else
     git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts -q
   fi
+  yum clean all &>/dev/null || true
 }
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -209,15 +210,15 @@ retrieve_repo_file() {
   fi
   if [ -n "$RELEASE_FILE" ]; then
     printf '%b\n' "${YELLOW}Updating yum repos: This may take some time${NC}"
-    __yum clean all &>/dev/null
     backup_repo_files
     rm_repo_files "$YUM_DELETE"
     save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
+    yum clean all &>/dev/null
     if [ "$ARCH" != "x86_64" ]; then
       sed -i 's|http://cdn.remirepo.net/enterprise/$releasever/safe/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/rhel/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
       sed -i 's|https://rpms.remirepo.net/enterprise/$releasever/php74/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/rhel/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
     fi
-    __yum makecache &>/dev/null || statusCode=1
+    yum makecache &>/dev/null || statusCode=1
   fi
   [ "$statusCode" -ne 0 ] || printf '%b\n' "${YELLOW}Done updating repos${NC}"
   return $statusCode
