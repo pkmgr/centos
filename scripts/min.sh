@@ -113,7 +113,7 @@ disable_selinux() {
       sed -i 's|SELINUX=.*|SELINUX=disabled|g' "/etc/selinux/config"
     else
       mkdir -p "/etc/selinux"
-      cat <<EOF | tee "/etc/selinux/config"
+      cat <<EOF | tee "/etc/selinux/config" &>/dev/null
 #
 SELINUX=disabled
 SELINUXTYPE=targeted
