@@ -191,6 +191,7 @@ rm_if_exists() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 retrieve_repo_file() {
   local statusCode="0"
+  yum clean all &>/dev/null
   if [ "$RELEASE_TYPE" = "centos" ] && [ "$(hostname -s)" != "pbx" ]; then
     if [ "$RELEASE_VER" -ge "9" ]; then
       YUM_DELETE="no"
@@ -206,6 +207,7 @@ retrieve_repo_file() {
       RELEASE_FILE=""
     fi
   else
+    yum makecache &>/dev/null
     return
   fi
   if [ -n "$RELEASE_FILE" ]; then
@@ -213,8 +215,10 @@ retrieve_repo_file() {
     backup_repo_files
     rm_repo_files "$YUM_DELETE"
     save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
-    yum clean all &>/dev/null
     if [ "$ARCH" != "x86_64" ]; then
+      sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo.el$releasever|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/rhel/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
+      sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo-kernel.el$releasever|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/rhel/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
+      sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo-extras.el$releasever|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/rhel/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
       sed -i 's|http://cdn.remirepo.net/enterprise/$releasever/safe/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/rhel/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
       sed -i 's|https://rpms.remirepo.net/enterprise/$releasever/php74/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/rhel/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
     fi
@@ -313,7 +317,10 @@ get_user_ssh_key
 printf_head "Configuring the system"
 ##################################################################################################################
 run_external timedatectl set-timezone America/New_York
+for oci in 'oci*' 'cloud*' 'oracle*'; do __yum remove -yy -q "$oci" &>/dev/null; done
+for rpms in echo chrony cronie-anacron sendmail sendmail-cf esmtp; do rpm -ev --nodeps $rpms &>/dev/null; done
 run_external yum update -q -yy --skip-broken
+install_pkg postfix
 install_pkg net-tools
 install_pkg wget
 install_pkg curl
@@ -325,8 +332,6 @@ install_pkg vim
 install_pkg unzip
 install_pkg cronie-noanacron
 install_pkg bind-utils
-for oci in 'oci*' 'cloud*' 'oracle*'; do __yum remove -yy -q "$oci" &>/dev/null; done
-for rpms in echo chrony cronie-anacron sendmail sendmail-cf; do rpm -ev --nodeps $rpms &>/dev/null; done
 retrieve_repo_file
 rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
