@@ -1,3 +1,22 @@
+## 🗃️ Changelog: 2023-08-10 at 20:23:23 🗃️  
+
+🗃️ Updated domain names 🗃️  
+  
+  
+LICENSE.md  
+scripts/apache.sh  
+scripts/default.sh  
+scripts/development.sh  
+scripts/mail.sh  
+scripts/min.oci.sh  
+scripts/min.sh  
+scripts/server.sh  
+scripts/template  
+
+
+### 🗃️ End of changes for 202304021219-git 🗃️  
+
+----  
 #### Changelog: 2023-04-02 at 12:19:49  
 
 scripts/apache.sh : 🗃️  Committing everything that changed 🗃️ 🚀  
