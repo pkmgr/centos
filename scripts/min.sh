@@ -4,11 +4,11 @@
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  WTFPL
-# @@ReadME           :  min.sh --help
+# @@ReadME           :  min.oci.sh --help
 # @@Copyright        :  Copyright: (c) 2022 Jason Hempstead, Casjays Developments
 # @@Created          :  Monday, Nov 07, 2022 12:39 EST
-# @@File             :  min.sh
-# @@Description      :  Script to setup min for CentOS/AlmaLinux/RockyLinux
+# @@File             :  min.oci.sh
+# @@Description      :  Script to setup min.oci for CentOS/AlmaLinux/RockyLinux
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
 # @@Other            :
@@ -40,7 +40,7 @@ else
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_OS="AlmaLinux"
-SCRIPT_DESCRIBE="min"
+SCRIPT_DESCRIBE="Minimal"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_NAME="$APPNAME"
@@ -286,8 +286,6 @@ else
   run_init_check
   retrieve_repo_file || printf_exit "The script has failed to initialize"
   system_service_enable vnstat && systemctl start vnstat &>/dev/null
-  echo "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
-  run_external "__yum clean all"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
@@ -305,7 +303,7 @@ printf_head "Configuring cores for compiling"
 ##################################################################################################################
 numberofcores=$(grep -c ^processor /proc/cpuinfo)
 printf_yellow "Total cores avaliable: $numberofcores"
-if [ -f /etc/makepkg.conf ]; then
+if [ -f "/etc/makepkg.conf" ]; then
   if [ $numberofcores -gt 1 ]; then
     sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores + 1))'"/g' /etc/makepkg.conf
     sed -i 's/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T '"$numberofcores"' -z -)/g' /etc/makepkg.conf
@@ -318,10 +316,11 @@ get_user_ssh_key
 ##################################################################################################################
 printf_head "Configuring the system"
 ##################################################################################################################
+retrieve_repo_file
 run_external timedatectl set-timezone America/New_York
 for oci in 'oci*' 'cloud*' 'oracle*'; do __yum remove -yy -q "$oci" &>/dev/null; done
 for rpms in echo chrony cronie-anacron sendmail sendmail-cf esmtp; do rpm -ev --nodeps $rpms &>/dev/null; done
-run_external yum update -q -yy --skip-broken
+install_pkg cronie-noanacron
 install_pkg postfix
 install_pkg net-tools
 install_pkg wget
@@ -332,15 +331,14 @@ install_pkg e2fsprogs
 install_pkg redhat-lsb
 install_pkg vim
 install_pkg unzip
-install_pkg cronie-noanacron
 install_pkg bind-utils
-retrieve_repo_file
 rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 run_external yum update -q -yy --skip-broken
 ##################################################################################################################
 printf_head "Installing the packages for $RELEASE_NAME"
 ##################################################################################################################
+
 install_pkg awffull
 install_pkg awstats
 install_pkg basesystem
@@ -468,12 +466,9 @@ install_pkg yum-utils
 install_pkg zip
 install_pkg zlib
 ##################################################################################################################
-printf_head "Setting up grub"
+printf_head "Fixing packages"
 ##################################################################################################################
 run_grub
-##################################################################################################################
-printf_head "setting up config files"
-##################################################################################################################
 rm -Rf /etc/named* /var/named/* /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf /tmp/configs
 ##################################################################################################################
 printf_head "Installing custom web server files"
@@ -601,6 +596,7 @@ printf_head "Installer version: $(retrieve_version_file)"
 mkdir -p "/etc/casjaysdev/updates/versions"
 echo "$VERSION" >"/etc/casjaysdev/updates/versions/configs.txt"
 echo "$(date +'Installed on %y-%m-%d at %H:%M')" >"/etc/casjaysdev/updates/versions/installed.txt"
+echo "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
 chmod -Rf 664 "/etc/casjaysdev/updates/versions/configs.txt"
 chmod -Rf 664 "/etc/casjaysdev/updates/versions/installed.txt"
 ##################################################################################################################

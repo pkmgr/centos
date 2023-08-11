@@ -303,7 +303,7 @@ printf_head "Configuring cores for compiling"
 ##################################################################################################################
 numberofcores=$(grep -c ^processor /proc/cpuinfo)
 printf_yellow "Total cores avaliable: $numberofcores"
-if [ -f /etc/makepkg.conf ]; then
+if [ -f "/etc/makepkg.conf" ]; then
   if [ $numberofcores -gt 1 ]; then
     sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores + 1))'"/g' /etc/makepkg.conf
     sed -i 's/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T '"$numberofcores"' -z -)/g' /etc/makepkg.conf
@@ -316,10 +316,11 @@ get_user_ssh_key
 ##################################################################################################################
 printf_head "Configuring the system"
 ##################################################################################################################
+retrieve_repo_file
 run_external timedatectl set-timezone America/New_York
 for oci in 'oci*' 'cloud*' 'oracle*'; do __yum remove -yy -q "$oci" &>/dev/null; done
 for rpms in echo chrony cronie-anacron sendmail sendmail-cf esmtp; do rpm -ev --nodeps $rpms &>/dev/null; done
-run_external yum update -q -yy --skip-broken
+install_pkg cronie-noanacron
 install_pkg postfix
 install_pkg net-tools
 install_pkg wget
@@ -330,9 +331,7 @@ install_pkg e2fsprogs
 install_pkg redhat-lsb
 install_pkg vim
 install_pkg unzip
-install_pkg cronie-noanacron
 install_pkg bind-utils
-retrieve_repo_file
 rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 run_external yum update -q -yy --skip-broken
