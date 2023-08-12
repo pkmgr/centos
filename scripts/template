@@ -52,6 +52,9 @@ RELEASE_TYPE="$(grep --no-filename -s '^ID_LIKE=' /etc/*-release | awk -F'=' '{p
 ARCH="$(uname -m | tr '[:upper:]' '[:lower:]')"
 BACKUP_DIR="$HOME/Documents/backups/$(date +'%Y/%m/%d')"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+SERVICES_ENABLE=""
+SERVICES_DISABLE=""
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 grep --no-filename -sE '^ID=|^ID_LIKE=|^NAME=' /etc/*-release | grep -qiwE "$SCRIPT_OS" && true || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$1" == "--help" ] && printf_exit "${GREEN}${SCRIPT_DESCRIBE} installer for $SCRIPT_OS${NC}"

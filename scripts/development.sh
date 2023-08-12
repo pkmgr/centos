@@ -52,6 +52,9 @@ RELEASE_TYPE="$(grep --no-filename -s '^ID_LIKE=' /etc/*-release | awk -F'=' '{p
 ARCH="$(uname -m | tr '[:upper:]' '[:lower:]')"
 BACKUP_DIR="$HOME/Documents/backups/$(date +'%Y/%m/%d')"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+SERVICES_ENABLE="cockpit cockpit.socket munin-node named ntpd php-fpm postfix proftpd rsyslog snmpd sshd tor uptimed"
+SERVICES_DISABLE="avahi-daemon.service avahi-daemon.socket chrony cups.path cups.service cups.socket dhcpd dhcpd6 dm-event.socket fail2ban firewalld import-state.service irqbalance.service iscsi iscsid.socket iscsiuio.socket kdump loadmodules.service lvm2-lvmetad.socket lvm2-lvmpolld.socket lvm2-monitor mdmonitor multipathd.service multipathd.socket nfs-client.target nis-domainname.service radvd rpcbind.service rpcbind.socket shorewall shorewall6 sssd-kcm.socket timedatex.service tuned.service udisks2.service"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 grep --no-filename -sE '^ID=|^ID_LIKE=|^NAME=' /etc/*-release | grep -qiwE "$SCRIPT_OS" && true || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$1" == "--help" ] && printf_exit "${GREEN}${SCRIPT_DESCRIBE} installer for $SCRIPT_OS${NC}"
@@ -2057,42 +2060,17 @@ if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
   echo "kernel.domainname=$domainname_sysctl" >>/etc/sysctl.conf
 fi
 ##################################################################################################################
-printf_head "Disabling services"
-##################################################################################################################
-system_service_disable firewalld
-system_service_disable chrony
-system_service_disable kdump
-system_service_disable iscsid.socket
-system_service_disable iscsi
-system_service_disable iscsiuio.socket
-system_service_disable lvm2-lvmetad.socket
-system_service_disable lvm2-lvmpolld.socket
-system_service_disable lvm2-monitor
-system_service_disable mdmonitor
-system_service_disable fail2ban
-system_service_disable shorewall
-system_service_disable shorewall6
-system_service_disable dhcpd
-system_service_disable dhcpd6
-system_service_disable radvd
-
-##################################################################################################################
 printf_head "Enabling services"
 ##################################################################################################################
-system_service_enable sshd
-system_service_enable tor
-system_service_enable munin-node
-system_service_enable cockpit
-system_service_enable postfix
-system_service_enable uptimed
-system_service_enable php-fpm
-system_service_enable proftpd
-system_service_enable rsyslog
-system_service_enable ntpd
-system_service_enable snmpd
-system_service_enable cockpit.socket
-system_service_enable named
-
+for service_enable in $SERVICES_ENABLE; do
+  [ -n "$service_disable" ] && system_service_enable $service_enable
+done
+##################################################################################################################
+printf_head "Disabling services"
+##################################################################################################################
+for service_disable in $SERVICES_DISABLE; do
+  [ -n "$service_disable" ] && system_service_disable $service_disable
+done
 ##################################################################################################################
 printf_head "Cleaning up"
 ##################################################################################################################
