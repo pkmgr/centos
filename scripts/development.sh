@@ -54,6 +54,7 @@ SCRIPT_OS="AlmaLinux"
 SCRIPT_DESCRIBE="development"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 DFMGR_CONFIGS="misc git tmux"
+SYSTEMMGR_CONFIGS="cron ssh ssl"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_NAME="$APPNAME"
 SCRIPT_NAME="${SCRIPT_NAME%.*}"
@@ -2041,6 +2042,10 @@ run_grub
 printf_head "Deleting files"
 ##################################################################################################################
 rm -Rf /etc/named* /var/named/* /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf /tmp/configs
+##################################################################################################################
+printf_head "Installing custom system configs"
+##################################################################################################################
+run_post "systemmgr install $SYSTEMMGR_CONFIGS"
 ##################################################################################################################
 printf_head "Installing custom dotfiles"
 ##################################################################################################################
