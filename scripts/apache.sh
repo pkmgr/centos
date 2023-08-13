@@ -351,6 +351,7 @@ retrieve_repo_file
 rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 run_external yum update -q -yy --skip-broken
+[ $RELEASE_VER -ge 9 ] && install_pkg glibc-langpack-en
 ##################################################################################################################
 printf_head "Installing the packages for $RELEASE_NAME"
 ##################################################################################################################
