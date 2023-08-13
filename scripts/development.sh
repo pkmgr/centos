@@ -25,6 +25,17 @@ SRC_DIR="${BASH_SOURCE%/*}"
 # Set bash options
 if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+for pkg in sudo git curl wget vnstat; do
+  command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && yum install -yy -q $pkg &>/dev/null || return 1; } || { echo "Failed to install $pkg" && exit 1; }
+done
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+if [ ! -d "/usr/local/share/CasjaysDev/scripts" ]; then
+  git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts -q
+  eval /usr/local/share/CasjaysDev/scripts/install.sh || { echo "Failed to initialize" && exit 1; }
+  export PATH="/usr/local/share/CasjaysDev/scripts/bin:$PATH"
+fi
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set functions
 SCRIPTSFUNCTURL="${SCRIPTSFUNCTURL:-https://github.com/casjay-dotfiles/scripts/raw/main/functions}"
 SCRIPTSFUNCTDIR="${SCRIPTSFUNCTDIR:-/usr/local/share/CasjaysDev/scripts}"
@@ -42,6 +53,7 @@ fi
 SCRIPT_OS="AlmaLinux"
 SCRIPT_DESCRIBE="development"
 GITHUB_USER="${GITHUB_USER:-casjay}"
+DFMGR_CONFIGS="misc git tmux"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_NAME="$APPNAME"
 SCRIPT_NAME="${SCRIPT_NAME%.*}"
@@ -151,17 +163,14 @@ get_user_ssh_key() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_init_check() {
   { printf '%b\n' "${YELLOW}Updating cache and installing epel-release${NC}" && yum makecache &>/dev/null && __dnf_yum install epel-release -yy -q &>/dev/null; } || true
-  for pkg in sudo git curl wget vnstat; do
-    command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && __dnf_yum install -yy -q $pkg &>/dev/null || return 1; } || printf_exit "Failed to install $pkg"
-  done
-  if [ -d "/usr/local/share/CasjaysDev/scripts" ]; then
+  if [ -d "/usr/local/share/CasjaysDev/scripts/.git" ]; then
     git -C /usr/local/share/CasjaysDev/scripts pull -q
-  else
-    git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts -q
+    if [ $? -ne 0 ]; then
+      git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts -q
+    fi
   fi
   yum clean all &>/dev/null || true
 }
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __yum() { yum "$@" $yum_opts &>/dev/null || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
@@ -2035,7 +2044,7 @@ rm -Rf /etc/named* /var/named/* /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /va
 ##################################################################################################################
 printf_head "Installing custom dotfiles"
 ##################################################################################################################
-run_post "dfmgr install misc git"
+run_post "dfmgr install $DFMGR_CONFIGS"
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
