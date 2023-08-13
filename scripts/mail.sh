@@ -25,7 +25,7 @@ SRC_DIR="${BASH_SOURCE%/*}"
 # Set bash options
 if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-for pkg in sudo git curl wget vnstat; do
+for pkg in sudo git curl wget; do
   command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && yum install -yy -q $pkg &>/dev/null || return 1; } || { echo "Failed to install $pkg" && exit 1; }
 done
 
