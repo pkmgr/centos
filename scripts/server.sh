@@ -194,9 +194,12 @@ rm_if_exists() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 retrieve_repo_file() {
   local statusCode="0"
+  local YUM_DELETE="true"
+  yum clean all &>/dev/null
   if [ "$RELEASE_TYPE" = "centos" ] && [ "$(hostname -s)" != "pbx" ]; then
     if [ "$RELEASE_VER" -ge "9" ]; then
       YUM_DELETE="no"
+      REPO_REPLACE="false"
       RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
     elif [ "$RELEASE_VER" -ge "8" ]; then
       YUM_DELETE="yes"
@@ -209,6 +212,7 @@ retrieve_repo_file() {
       RELEASE_FILE=""
     fi
   else
+    yum makecache &>/dev/null
     return
   fi
   if [ -n "$RELEASE_FILE" ]; then
@@ -216,8 +220,10 @@ retrieve_repo_file() {
     backup_repo_files
     rm_repo_files "$YUM_DELETE"
     save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
-    yum clean all &>/dev/null
-    if [ "$ARCH" != "x86_64" ]; then
+    if [ "$ARCH" != "x86_64" ] && [ "$REPO_REPLACE" = "true" ]; then
+      sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo.el$releasever|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
+      sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo-kernel.el$releasever|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
+      sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo-extras.el$releasever|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
       sed -i 's|http://cdn.remirepo.net/enterprise/$releasever/safe/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
       sed -i 's|https://rpms.remirepo.net/enterprise/$releasever/php74/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/remi|g' /etc/yum.repos.d/casjay.repo
     fi
@@ -285,6 +291,7 @@ else
   run_init_check
   retrieve_repo_file || printf_exit "The script has failed to initialize"
   system_service_enable vnstat && systemctl start vnstat &>/dev/null
+  [ -f "/etc/casjaysdev/updates/versions/os_version.txt" ] || echo "$RELEASE_VER" >"/etc/casjaysdev/updates/versions/os_version.txt"
 fi
 if ! builtin type -P systemmgr &>/dev/null; then
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
