@@ -1,3 +1,17 @@
+## 🗃️ Changelog: 2023-08-12 at 21:00:18 🗃️  
+
+🗃️ Committing everything that changed 🗃️  
+  
+  
+scripts/default.sh  
+scripts/min.oci.sh  
+scripts/min.sh  
+scripts/server.sh  
+
+
+### 🗃️ End of changes for 202308121712-git 🗃️  
+
+----  
 ## 🗃️ Changelog: 2023-08-12 at 17:12:57 🗃️  
 
 🗃️ Committing everything that changed 🗃️  

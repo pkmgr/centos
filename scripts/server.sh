@@ -1048,7 +1048,8 @@ if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
   echo "kernel.domainname=$domainname_sysctl" >>/etc/sysctl.conf
 fi
 sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs "https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh")"
-run_post "dfmgr install bash misc"
+##################################################################################################################
+printf_head "Installing custom dotfiles"
 ##################################################################################################################
 printf_head "Enabling services"
 ##################################################################################################################
