@@ -1080,7 +1080,7 @@ printf_head "Installing custom dotfiles"
 printf_head "Enabling services"
 ##################################################################################################################
 for service_enable in $SERVICES_ENABLE; do
-  [ -n "$service_disable" ] && system_service_enable $service_enable
+  [ -n "$service_enable" ] && system_service_enable $service_enable
 done
 ##################################################################################################################
 printf_head "Disabling services"
