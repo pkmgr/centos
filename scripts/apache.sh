@@ -208,7 +208,7 @@ retrieve_repo_file() {
   yum clean all &>/dev/null
   if [ "$RELEASE_TYPE" = "centos" ] && [ "$(hostname -s)" != "pbx" ]; then
     if [ "$RELEASE_VER" -ge "9" ]; then
-      YUM_DELETE="no"
+      YUM_DELETE="yes"
       REPO_REPLACE="false"
       RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
     elif [ "$RELEASE_VER" -ge "8" ]; then
