@@ -27,13 +27,13 @@ if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS=
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if ! swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^'; then
   echo "Creating and enabling swapfile"
-  mkdir -p "/var/cache/swapFile"
-  dd if=/dev/zero of=/var/cache/swapFile bs=1024 count=1048576
-  chmod 600 /var/cache/swapFile
-  mkswap /var/cache/swapFile
-  swapon /var/cache/swapFile
-  if ! grep -q '/var/cache/swapFile' "/var/cache/swapFile"; then
-    echo "/var/cache/swapFile swap swap defaults 0 0" >>/etc/fstab
+  mkdir -p "/var/cache/swaps"
+  dd if=/dev/zero of=/var/cache/swaps/swapFile bs=1024 count=1048576
+  chmod 600 /var/cache/swaps/swapFile
+  mkswap /var/cache/swaps/swapFile
+  swapon /var/cache/swaps/swapFile
+  if ! grep -q '/var/cache/swaps/swapFile' "/var/cache/swaps/swapFile"; then
+    echo "/var/cache/swaps/swapFile swap swap defaults 0 0" >>/etc/fstab
   fi
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
