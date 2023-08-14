@@ -28,7 +28,17 @@ if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS=
 for pkg in sudo git curl wget; do
   command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && yum install -yy -q $pkg &>/dev/null || return 1; } || { echo "Failed to install $pkg" && exit 1; }
 done
-
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+if [ -z "$(swapon --show | grep -v '^NAME ')" ]; then
+  mkdir -p "/var/cache/swapFile"
+  dd if=/dev/zero of=/var/cache/swapFile bs=1024 count=1048576
+  chmod 600 /var/cache/swapFile
+  mkswap /var/cache/swapFile
+  swapon /var/cache/swapFile
+  if ! grep -q '/var/cache/swapFile' "/var/cache/swapFile"; then
+    echo "/var/cache/swapFile swap swap defaults 0 0" >>/etc/fstab
+  fi
+fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ ! -d "/usr/local/share/CasjaysDev/scripts" ]; then
   git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts -q
