@@ -29,7 +29,7 @@ for pkg in sudo git curl wget; do
   command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && yum install -yy -q $pkg &>/dev/null || return 1; } || { echo "Failed to install $pkg" && exit 1; }
 done
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^'; then
+if ! swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^'; then
   echo "Creating and enabling swapfile"
   mkdir -p "/var/cache/swapFile"
   dd if=/dev/zero of=/var/cache/swapFile bs=1024 count=1048576

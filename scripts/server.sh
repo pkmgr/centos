@@ -25,7 +25,7 @@ SRC_DIR="${BASH_SOURCE%/*}"
 # Set bash options
 if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^'; then
+if ! swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^'; then
   echo "Creating and enabling swapfile"
   mkdir -p "/var/cache/swapFile"
   dd if=/dev/zero of=/var/cache/swapFile bs=1024 count=1048576
