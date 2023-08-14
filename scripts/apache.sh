@@ -89,12 +89,12 @@ system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && ex
 system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __dnf_yum() {
-  local rhel_pkgmgr="" opts="--skip-broken"
+  local rhel_pkgmgr="" opts="--skip-broken" exitCode=0
   rhel_pkgmgr="$(builtin type -P dnf || builtin type -P yum || false)"
   [ "$RELEASE_VER" -lt 8 ] || opts="--allowerasing --nobest --skip-broken"
   $rhel_pkgmgr $opts "$@"
-  rpm -q "$pkg" | grep -v 'is not installed' | grep -q '^' || false
-  return $?
+  if rpm -q "$pkg" | grep -v 'is not installed' | grep -q '^'; then exitCode=0; else exitCode=1; fi
+  return $exitCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 test_pkg() {

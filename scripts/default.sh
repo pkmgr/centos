@@ -93,7 +93,7 @@ __dnf_yum() {
   rhel_pkgmgr="$(builtin type -P dnf || builtin type -P yum || false)"
   [ "$RELEASE_VER" -lt 8 ] || opts="--allowerasing --nobest --skip-broken"
   $rhel_pkgmgr $opts "$@"
-  rpm -q "$pkg" | grep -v 'is not installed' | grep -q '^' || false
+  if rpm -q "$pkg" | grep -v 'is not installed' | grep -q '^'; then exitCode=0; else exitCode=1; fi
   return $?
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
