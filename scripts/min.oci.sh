@@ -25,10 +25,6 @@ SRC_DIR="${BASH_SOURCE%/*}"
 # Set bash options
 if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-for pkg in sudo git curl wget; do
-  command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && yum install -yy -q $pkg &>/dev/null || return 1; } || { echo "Failed to install $pkg" && exit 1; }
-done
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if ! swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^'; then
   echo "Creating and enabling swapfile"
   mkdir -p "/var/cache/swapFile"
@@ -40,6 +36,10 @@ if ! swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^'; then
     echo "/var/cache/swapFile swap swap defaults 0 0" >>/etc/fstab
   fi
 fi
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+for pkg in sudo git curl wget; do
+  command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && yum install -yy -q $pkg &>/dev/null || exit 1; } || { echo "Failed to install $pkg" && exit 1; }
+done
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ ! -d "/usr/local/share/CasjaysDev/scripts" ]; then
   git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts -q
