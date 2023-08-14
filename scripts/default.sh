@@ -28,13 +28,14 @@ if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS=
 if ! swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^'; then
   echo "Creating and enabling swapfile"
   mkdir -p "/var/cache/swaps"
-  dd if=/dev/zero of=/var/cache/swaps/swapFile bs=1024 count=1048576
+  dd if=/dev/zero of=/var/cache/swaps/swapFile bs=1024 count=1048576 &>/dev/null
   chmod 600 /var/cache/swaps/swapFile
-  mkswap /var/cache/swaps/swapFile
-  swapon /var/cache/swaps/swapFile
+  mkswap /var/cache/swaps/swapFile &>/dev/null
+  swapon /var/cache/swaps/swapFile &>/dev/null
   if ! grep -q '/var/cache/swaps/swapFile' "/var/cache/swaps/swapFile"; then
     echo "/var/cache/swaps/swapFile swap swap defaults 0 0" >>/etc/fstab
   fi
+  swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^' && echo "Swap has been enabled"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 for pkg in sudo git curl wget; do
