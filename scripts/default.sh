@@ -92,7 +92,8 @@ __dnf_yum() {
   local rhel_pkgmgr="" opts="--skip-broken"
   rhel_pkgmgr="$(builtin type -P dnf || builtin type -P yum || false)"
   [ "$RELEASE_VER" -lt 8 ] || opts="--allowerasing --nobest --skip-broken"
-  $rhel_pkgmgr $opts "$@" || false
+  $rhel_pkgmgr $opts "$@"
+  rpm -q "$pkg" | grep -v 'is not installed' | grep -q '^' || false
   return $?
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
