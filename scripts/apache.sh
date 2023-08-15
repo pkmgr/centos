@@ -487,7 +487,9 @@ done
 ##################################################################################################################
 printf_head "Cleaning up"
 ##################################################################################################################
-echo "" >/etc/yum/pluginconf.d/subscription-manager.conf
+[ -f "/etc/yum/pluginconf.d/subscription-manager.conf" ] && echo "" >"/etc/yum/pluginconf.d/subscription-manager.conf"
+find / -iname '*.rpmnew' -exec rm -Rf {} \;
+find / -iname '*.rpmsave' -exec rm -Rf {} \;
 rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
 /root/bin/changeip.sh >/dev/null 2>&1
 mkdir -p /mnt/backups /var/www/html/.well-known /etc/letsencrypt/live

@@ -1071,8 +1071,11 @@ printf_head "Running post install"
 ##################################################################################################################
 printf_head "Cleaning up"
 ##################################################################################################################
+[ -f "/etc/yum/pluginconf.d/subscription-manager.conf" ] && echo "" >"/etc/yum/pluginconf.d/subscription-manager.conf"
 system_service_enable httpd
 system_service_enable nginx
+find / -iname '*.rpmnew' -exec rm -Rf {} \;
+find / -iname '*.rpmsave' -exec rm -Rf {} \;
 rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
 /root/bin/changeip.sh >/dev/null 2>&1
 [ -f "/etc/yum/pluginconf.d/subscription-manager.conf" ] && echo "" >/etc/yum/pluginconf.d/subscription-manager.conf

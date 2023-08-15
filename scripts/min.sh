@@ -603,6 +603,8 @@ printf_head "Fixing ip address"
 printf_head "Cleaning up"
 ##################################################################################################################
 [ -f "/etc/yum/pluginconf.d/subscription-manager.conf" ] && echo "" >"/etc/yum/pluginconf.d/subscription-manager.conf"
+find / -iname '*.rpmnew' -exec rm -Rf {} \;
+find / -iname '*.rpmsave' -exec rm -Rf {} \;
 rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
 retrieve_repo_file
 chown -Rf apache:apache "/var/www"
