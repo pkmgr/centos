@@ -247,8 +247,9 @@ retrieve_repo_file() {
       sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo.el$releasever|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/empty|g' /etc/yum.repos.d/casjay.repo
       sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo-kernel.el$releasever|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/empty|g' /etc/yum.repos.d/casjay.repo
       sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo-extras.el$releasever|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/empty|g' /etc/yum.repos.d/casjay.repo
+      sed -i 's|http://cdn.remirepo.net/enterprise/$releasever/remi/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/empty|g' /etc/yum.repos.d/casjay.repo
       sed -i 's|http://cdn.remirepo.net/enterprise/$releasever/safe/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/empty|g' /etc/yum.repos.d/casjay.repo
-      sed -i 's|https://rpms.remirepo.net/enterprise/$releasever/php74/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/empty|g' /etc/yum.repos.d/casjay.repo
+      sed -i 's|http://cdn.remirepo.net/enterprise/$releasever/php74/$basearch/mirror|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/empty|g' /etc/yum.repos.d/casjay.repo
     fi
     yum makecache &>/dev/null || statusCode=1
   fi
