@@ -244,7 +244,7 @@ retrieve_repo_file() {
     rm_repo_files "$YUM_DELETE"
     save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
     if [ "$ARCH" != "x86_64" ] && [ "$REPO_REPLACE" = "true" ]; then
-      sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo.*|https://rpm-devel.sourceforge.io/repo/RHEL/$releasever/$basearch/empty|g' /etc/yum.repos.d/casjay.repo
+      sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo.*|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/empty|g' /etc/yum.repos.d/casjay.repo
       sed -i 's|https://mirror.usi.edu/pub/remi/enterprise/.*|https://rpm-devel.sourceforge.io/repo/RHEL/$releasever/$basearch/empty|g' /etc/yum.repos.d/casjay.repo
     fi
     yum makecache &>/dev/null || statusCode=1
