@@ -222,16 +222,20 @@ retrieve_repo_file() {
   if [ "$RELEASE_TYPE" = "centos" ] && [ "$(hostname -s)" != "pbx" ]; then
     if [ "$RELEASE_VER" -ge "9" ]; then
       YUM_DELETE="yes"
-      REPO_REPLACE="false"
+      REPO_REPLACE="no"
+      REPO_REPLACE="yes"
       RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
     elif [ "$RELEASE_VER" -ge "8" ]; then
       YUM_DELETE="yes"
       RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh8.repo"
+      REPO_REPLACE="yes"
     elif [ "$RELEASE_VER" -lt "8" ]; then
       YUM_DELETE="yes"
+      REPO_REPLACE="yes"
       RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
     else
       YUM_DELETE="no"
+      REPO_REPLACE="no"
       RELEASE_FILE=""
     fi
   else
@@ -243,7 +247,7 @@ retrieve_repo_file() {
     backup_repo_files
     rm_repo_files "$YUM_DELETE"
     save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
-    if [ "$ARCH" != "x86_64" ] && [ "$REPO_REPLACE" = "true" ]; then
+    if [ "$ARCH" != "x86_64" ] && [ "$REPO_REPLACE" = "yes" ]; then
       sed -i 's|http://mirrors.elrepo.org/mirrors-elrepo.*|https://github.com/rpm-devel/casjay-release/raw/main/ZREPO/RHEL/mirrors/empty|g' /etc/yum.repos.d/casjay.repo
       sed -i 's|https://mirror.usi.edu/pub/remi/enterprise/.*|https://rpm-devel.sourceforge.io/repo/RHEL/$releasever/$basearch/empty|g' /etc/yum.repos.d/casjay.repo
     fi
