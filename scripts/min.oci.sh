@@ -463,6 +463,7 @@ install_pkg python3-future
 install_pkg python3-idna
 install_pkg python3-josepy
 install_pkg python3-mock
+install_pkg python3-neovim
 install_pkg python3-parsedatetime
 install_pkg python3-pbr
 install_pkg python3-pip

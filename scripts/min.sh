@@ -388,6 +388,7 @@ install_pkg cronie
 install_pkg cronie-noanacron
 install_pkg crontabs
 install_pkg curl
+install_pkg ctags
 install_pkg deltarpm
 install_pkg dialog
 install_pkg docker-ce
@@ -464,6 +465,7 @@ install_pkg python3-future
 install_pkg python3-idna
 install_pkg python3-josepy
 install_pkg python3-mock
+install_pkg python3-neovim
 install_pkg python3-parsedatetime
 install_pkg python3-pbr
 install_pkg python3-pip
