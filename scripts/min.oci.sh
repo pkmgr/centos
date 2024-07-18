@@ -387,6 +387,7 @@ install_pkg cronie
 install_pkg cronie-noanacron
 install_pkg crontabs
 install_pkg curl
+install_pkg ctags
 install_pkg deltarpm
 install_pkg dialog
 install_pkg ethtool
