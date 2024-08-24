@@ -583,8 +583,8 @@ printf_head "Setting up ssl certificates"
 ##################################################################################################################
 update-ca-trust && update-ca-trust extract
 # If using letsencrypt certificates
-[ -f "/etc/certbot/dns.conf" ] && chmod 600 "/etc/certbot/dns.conf"
-if [ -d "/etc/letsencrypt/live/$(domainname)" ] || [ -d "/etc/letsencrypt/live/domain" ]; then
+[ -f "/etc/certbot/dns.conf" ] && chmod 600 "/etc/certbot/dns.conf" && acme-cli
+if [ -d "/etc/letsencrypt/live/$(domainname)" ]; then
   if [ ! -e "/etc/letsencrypt/live/domain" ]; then
     ln -s "/etc/letsencrypt/live/$(domainname)" "/etc/letsencrypt/live/domain"
   fi
