@@ -1,0 +1,5 @@
+# Disable reminder in prompt
+ignoredirmessage
+
+# ignore commit message
+.gitcommit
