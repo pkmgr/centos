@@ -608,11 +608,14 @@ if [ -f "/var/lib/tor/hidden_service/default/hostname" ]; then
 fi
 ##################################################################################################################
 if [ "$myhostnameshort" = "mail" ]; then
-  [ -f "$HOME/Projects/github/dfprivate/email/install.sh" ] && eval "$HOME/Projects/github/dfprivate/email/inbstall.sh"
+  printf_head "Running installer script for email server"
+  [ -f "$HOME/Projects/github/dfprivate/email/install.sh" ] && eval "$HOME/Projects/github/dfprivate/email/install.sh"
 elif [ "$myhostnameshort" = "db" ] || [ "$set_domainname" = "sqldb.us" ]; then
-  [ -f "$HOME/Projects/github/dfprivate/sql/install.sh" ] && eval "$HOME/Projects/github/dfprivate/sql/inbstall.sh"
+  printf_head "Running installer script for database server"
+  [ -f "$HOME/Projects/github/dfprivate/sql/install.sh" ] && eval "$HOME/Projects/github/dfprivate/sql/install.sh"
 elif [ "$myhostnameshort" = "dns" ] || [ "$myhostnameshort" = "dns1" ] || [ "$myhostnameshort" = "dns2" ]; then
-  [ -f "$HOME/Projects/github/dfprivate/dns/install.sh" ] && eval "$HOME/Projects/github/dfprivate/dns/inbstall.sh"
+  printf_head "Running installer script for dns server"
+  [ -f "$HOME/Projects/github/dfprivate/dns/install.sh" ] && eval "$HOME/Projects/github/dfprivate/dns/install.sh"
 fi
 ##################################################################################################################
 printf_head "Creating directories"
