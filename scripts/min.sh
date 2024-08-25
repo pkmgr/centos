@@ -602,6 +602,14 @@ if [ -f "/var/lib/tor/hidden_service/default/hostname" ]; then
   cat /var/lib/tor/hidden_service/*/hostname >"/var/www/html/tor_hostname" 2>/dev/null
 fi
 ##################################################################################################################
+if [ "$myhostnameshort" = "mail" ]; then
+  [ -f "$HOME/Projects/github/dfprivate/email/install.sh" ] && eval "$HOME/Projects/github/dfprivate/email/inbstall.sh"
+elif [ "$myhostnameshort" = "db" ] || [ "$set_domainname" = "sqldb.us" ]; then
+  [ -f "$HOME/Projects/github/dfprivate/sql/install.sh" ] && eval "$HOME/Projects/github/dfprivate/sql/inbstall.sh"
+elif [ "$myhostnameshort" = "dns" ] || [ "$myhostnameshort" = "dns1" ] || [ "$myhostnameshort" = "dns2" ]; then
+  [ -f "$HOME/Projects/github/dfprivate/dns/install.sh" ] && eval "$HOME/Projects/github/dfprivate/dns/inbstall.sh"
+fi
+##################################################################################################################
 printf_head "Creating directories"
 ##################################################################################################################
 mkdir -p /mnt/backups /var/www/html/.well-known /etc/letsencrypt/live
