@@ -561,7 +561,7 @@ devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
 grep -q '^apache' /etc/passwd && devnull chown -Rf apache:apache "/var/www" "/usr/share/httpd"
 grep -q '^named' /etc/passwd && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
-devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains
+devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
 devnull newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
   echo "kernel.domainname=$set_domainname" >>/etc/sysctl.conf
