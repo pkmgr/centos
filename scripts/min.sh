@@ -634,8 +634,8 @@ printf_head "Fixing ip address"
 printf_head "Cleaning up"
 ##################################################################################################################
 [ -f "/etc/yum/pluginconf.d/subscription-manager.conf" ] && echo "" >"/etc/yum/pluginconf.d/subscription-manager.conf"
-find / -iname '*.rpmnew' -exec rm -Rf {} \;
-find / -iname '*.rpmsave' -exec rm -Rf {} \;
+find / -iname '*.rpmnew' -exec rm -Rf {} \; >/dev/null 2>&1
+find / -iname '*.rpmsave' -exec rm -Rf {} \; >/dev/null 2>&1
 rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
 retrieve_repo_file
 chown -Rf apache:apache "/var/www"
