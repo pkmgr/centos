@@ -519,7 +519,7 @@ run_post "dfmgr install $DFMGR_CONFIGS"
 ##################################################################################################################
 printf_head "Installing custom web server files"
 ##################################################################################################################
-devnull rm -Rf "/tmp/configs"
+[ -d "/tmp/configs" ] && devnull rm -Rf "/tmp/configs"
 devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
 devnull git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
 devnull git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
