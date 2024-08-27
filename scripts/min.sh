@@ -519,6 +519,7 @@ run_post "dfmgr install $DFMGR_CONFIGS"
 ##################################################################################################################
 printf_head "Installing custom web server files"
 ##################################################################################################################
+devnull rm -Rf "/tmp/configs"
 devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
 devnull git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
 devnull git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
@@ -533,7 +534,7 @@ if port_in_use "53"; then
 else
   devnull rm -Rf /etc/named* /var/named/*
 fi
-devnull rm -Rf /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf /tmp/configs
+devnull rm -Rf /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
