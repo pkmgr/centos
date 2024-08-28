@@ -573,6 +573,7 @@ printf_head "Enabling services"
 ##################################################################################################################
 for service_enable in $SERVICES_ENABLE; do
   [ -n "$service_enable" ] && system_service_enable $service_enable
+  [ -n "$service_enable" ] && system_service_exists "$service_enable" && systemctl restart $service_enable >/dev/null 2>&1
 done
 ##################################################################################################################
 printf_head "Disabling services"
@@ -589,7 +590,7 @@ printf_head "Setting up ssl certificates"
 ##################################################################################################################
 update-ca-trust && update-ca-trust extract
 # If using letsencrypt certificates
-[ -f "/etc/certbot/dns.conf" ] && chmod 600 "/etc/certbot/dns.conf" && acme-cli
+[ -f "/etc/certbot/dns.conf" ] && chmod 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && acme-cli
 if [ -d "/etc/letsencrypt/live/$(domainname)" ]; then
   if [ ! -e "/etc/letsencrypt/live/domain" ]; then
     ln -s "/etc/letsencrypt/live/$(domainname)" "/etc/letsencrypt/live/domain"
