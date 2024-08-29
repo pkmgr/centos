@@ -67,6 +67,7 @@ SCRIPT_DESCRIBE="Minimal"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 DFMGR_CONFIGS="misc git tmux"
 SYSTEMMGR_CONFIGS="cron ssh ssl"
+SET_HOSTNAME="$([ -n "$(command -v hostname)" ] && hostname -s 2>/dev/null | grep '^' || echo "${HOSTNAME//.*/}")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_NAME="$APPNAME"
 SCRIPT_NAME="${SCRIPT_NAME%.*}"
@@ -76,6 +77,20 @@ RELEASE_TYPE="$(grep --no-filename -s '^ID_LIKE=' /etc/*-release | awk -F'=' '{p
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ARCH="$(uname -m | tr '[:upper:]' '[:lower:]')"
 BACKUP_DIR="$HOME/Documents/backups/$(date +'%Y/%m/%d')"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+if echo "$SET_HOSTNAME" | grep -qE '^dns'; then
+  SYSTEM_TYPE="dns"
+elif echo "$SET_HOSTNAME" | grep -qE '^pbx'; then
+  SYSTEM_TYPE="pbx"
+elif echo "$SET_HOSTNAME" | grep -qE '^mail'; then
+  SYSTEM_TYPE="mail"
+elif echo "$SET_HOSTNAME" | grep -qE '^server'; then
+  SYSTEM_TYPE="server"
+elif echo "$SET_HOSTNAME" | grep -qE '^sql|^db'; then
+  SYSTEM_TYPE="sql"
+elif echo "$SET_HOSTNAME" | grep -qE '^devel|^build'; then
+  SYSTEM_TYPE="devel"
+fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SERVICES_ENABLE="chrony cockpit cockpit.socket docker httpd munin-node nginx ntpd php-fpm postfix proftpd rsyslog snmpd sshd uptimed"
 SERVICES_DISABLE="avahi-daemon.service avahi-daemon.socket cups.path cups.service cups.socket dhcpd dhcpd6 dm-event.socket fail2ban firewalld import-state.service irqbalance.service iscsi iscsid.socket iscsiuio.socket kdump loadmodules.service lvm2-lvmetad.socket lvm2-lvmpolld.socket lvm2-monitor mdmonitor multipathd.service multipathd.socket named nfs-client.target nis-domainname.service nmb radvd rpcbind.service rpcbind.socket shorewall shorewall6 smb sssd-kcm.socket timedatex.service tuned.service udisks2.service"
@@ -604,20 +619,35 @@ else
   find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
   find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
 fi
+##################################################################################################################
+printf_head "Setting up munin-node"
+##################################################################################################################
 bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
+##################################################################################################################
+printf_head "Setting up tor"
+##################################################################################################################
 if [ -f "/var/lib/tor/hidden_service/default/hostname" ]; then
   cat /var/lib/tor/hidden_service/*/hostname >"/var/www/html/tor_hostname" 2>/dev/null
 fi
 ##################################################################################################################
-if [ "$myhostnameshort" = "mail" ]; then
+printf_head "Setting up bind dns [named]"
+##################################################################################################################
+if [ -z "$(command -v named)" ]; then
+  devnull rm_if_exists /etc/named
+  devnull rm_if_exists /etc/logrotate.d/named
+  devnull rm_if_exists /var/named
+  devnull rm_if_exists /var/log/named
+fi
+##################################################################################################################
+if [ "$SYSTEM_TYPE" = "mail" ]; then
   printf_head "Running installer script for email server"
-  [ -f "$HOME/Projects/github/dfprivate/email/install.sh" ] && eval "$HOME/Projects/github/dfprivate/email/install.sh"
-elif [ "$myhostnameshort" = "db" ] || [ "$set_domainname" = "sqldb.us" ]; then
+  [ -f "$HOME/Projects/github/dfprivate/email/install.sh" ] && eval "$HOME/Projects/github/dfprivate/email/install.sh" >/dev/null 2>&1
+elif [ "$SYSTEM_TYPE" = "db" ] || [ "$set_domainname" = "sqldb.us" ]; then
   printf_head "Running installer script for database server"
-  [ -f "$HOME/Projects/github/dfprivate/sql/install.sh" ] && eval "$HOME/Projects/github/dfprivate/sql/install.sh"
-elif [ "$myhostnameshort" = "dns" ] || [ "$myhostnameshort" = "dns1" ] || [ "$myhostnameshort" = "dns2" ]; then
+  [ -f "$HOME/Projects/github/dfprivate/sql/install.sh" ] && eval "$HOME/Projects/github/dfprivate/sql/install.sh" >/dev/null 2>&1
+elif [ "$SYSTEM_TYPE" = "dns" ] || [ "$set_domainname" = "casjaydns.com" ]; then
   printf_head "Running installer script for dns server"
-  [ -f "$HOME/Projects/github/dfprivate/dns/install.sh" ] && eval "$HOME/Projects/github/dfprivate/dns/install.sh"
+  [ -f "$HOME/Projects/github/dfprivate/dns/install.sh" ] && eval "$HOME/Projects/github/dfprivate/dns/install.sh" >/dev/null 2>&1
 fi
 ##################################################################################################################
 printf_head "Creating directories"
@@ -639,7 +669,7 @@ printf_head "Cleaning up"
 find / -iname '*.rpmnew' -exec rm -Rf {} \; >/dev/null 2>&1
 find / -iname '*.rpmsave' -exec rm -Rf {} \; >/dev/null 2>&1
 rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
-retrieve_repo_file
+devnull retrieve_repo_file
 chown -Rf apache:apache "/var/www"
 history -c && history -w
 ##################################################################################################################
