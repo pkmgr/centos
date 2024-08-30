@@ -101,7 +101,8 @@ grep --no-filename -sE '^ID=|^ID_LIKE=|^NAME=' /etc/*-release | grep -qiwE "$SCR
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 port_in_use() { netstatg 2>&1 | awk '{print $4}' | grep ':[0-9]' | awk -F':' '{print $2}' | grep '[0-9]' | grep -q "^$1$" || return 2; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-system_service_exists() { systemctl status "$1" 2>&1 | grep -iq "$1" && return 0 || return 1; }
+system_service_exists() { systemctl status "$1" 2>&1 | grep 'Loaded:' | grep -iq "$1" && return 0 || return 1; }
+system_service_active() { (systemctl is-enabled "$1" || systemctl is-active "$1") | grep -qiE 'enabled|active' || return 1; }
 system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable --now $1" "Enabling service: $1" || return 1; }
 system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -543,7 +544,7 @@ sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs "https://github.com/ca
 ##################################################################################################################
 printf_head "Deleting files"
 ##################################################################################################################
-if port_in_use "53"; then
+if system_service_active named || port_in_use "53"; then
   devnull rm -Rf /tmp/configs/etc/named*
   devnull rm -Rf /tmp/configs/var/named*
 else
