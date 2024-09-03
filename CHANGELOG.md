@@ -1,3 +1,15 @@
+## 🗃️ Changelog: 2024-09-03 at 10:52:57 🗃️  
+
+🗃️ Committing everything that changed 🗃️  
+  
+  
+scripts/min.oci.sh  
+scripts/min.sh  
+
+
+### 🗃️ End of changes for 202408292057-git 🗃️  
+
+----  
 ## 🗃️ Changelog: 2024-08-29 at 20:57:19 🗃️  
 
 🗃️ Committing everything that changed 🗃️  

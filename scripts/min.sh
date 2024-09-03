@@ -92,7 +92,7 @@ elif echo "$SET_HOSTNAME" | grep -qE '^devel|^build'; then
   SYSTEM_TYPE="devel"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SERVICES_ENABLE="chrony cockpit cockpit.socket docker httpd munin-node nginx ntpd php-fpm postfix proftpd rsyslog snmpd sshd uptimed"
+SERVICES_ENABLE="chrony cockpit cockpit.socket docker httpd munin-node nginx ntpd php-fpm postfix proftpd rsyslog snmpd sshd uptimed downtimed"
 SERVICES_DISABLE="avahi-daemon.service avahi-daemon.socket cups.path cups.service cups.socket dhcpd dhcpd6 dm-event.socket fail2ban firewalld import-state.service irqbalance.service iscsi iscsid.socket iscsiuio.socket kdump loadmodules.service lvm2-lvmetad.socket lvm2-lvmpolld.socket lvm2-monitor mdmonitor multipathd.service multipathd.socket named nfs-client.target nis-domainname.service nmb radvd rpcbind.service rpcbind.socket shorewall shorewall6 smb sssd-kcm.socket timedatex.service tuned.service udisks2.service"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 grep --no-filename -sE '^ID=|^ID_LIKE=|^NAME=' /etc/*-release | grep -qiwE "$SCRIPT_OS" && true || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
@@ -210,7 +210,7 @@ backup_repo_files() { cp -Rf "/etc/yum.repos.d/." "$BACKUP_DIR" 2>/dev/null || r
 rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos.d"/* &>/dev/null || return 0; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
-domain_name() { hostname -f | awk -F'.' '{$1="";OFS="." ; print $0}' | sed 's/^.//;s| |.|g' | grep '^'; }
+domain_name() { hostname -d | grep '^' || hostname -f | awk -F'.' '{$1="";OFS="." ; print $0}' | sed 's/^.//;s| |.|g' | grep '^'; }
 retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 printf_head() {
@@ -349,10 +349,61 @@ printf_head "Configuring cores for compiling"
 ##################################################################################################################
 numberofcores=$(grep -c ^processor /proc/cpuinfo)
 printf_yellow "Total cores avaliable: $numberofcores"
-if [ -f "/etc/makepkg.conf" ]; then
-  if [ $numberofcores -gt 1 ]; then
+if [ $numberofcores -gt 1 ]; then
+  if [ -f "/etc/makepkg.conf" ]; then
     sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores + 1))'"/g' /etc/makepkg.conf
     sed -i 's/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T '"$numberofcores"' -z -)/g' /etc/makepkg.conf
+  else
+    cat <<EOF >"/etc/makepkg.conf"
+#########################################################################
+# ARCHITECTURE, COMPILE FLAGS
+#########################################################################
+CARCH="x86_64"
+CHOST="x86_64-pc-linux-gnu"
+CFLAGS="-march=x86-64 -mtune=generic -O2 -pipe -fno-plt -fexceptions -Wp,-D_FORTIFY_SOURCE=3 -Wformat -Werror=format-security -fstack-clash-protection -fcf-protection -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer"
+CXXFLAGS="\$CFLAGS -Wp,-D_GLIBCXX_ASSERTIONS"
+LDFLAGS="-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,-z,pack-relative-relocs"
+LTOFLAGS="-flto=auto"
+RUSTFLAGS="-Cforce-frame-pointers=yes"
+MAKEFLAGS="-j$(($numberofcores + 1))"
+DEBUG_CFLAGS="-g"
+DEBUG_CXXFLAGS="\$DEBUG_CFLAGS"
+DEBUG_RUSTFLAGS="-C debuginfo=2"
+#########################################################################
+# BUILD ENVIRONMENT
+#########################################################################
+BUILDENV=(!distcc color !ccache check !sign)
+#DISTCC_HOSTS=""
+#BUILDDIR=/tmp/makepkg
+#########################################################################
+# GLOBAL PACKAGE OPTIONS
+#########################################################################
+OPTIONS=(strip docs !libtool !staticlibs emptydirs zipman purge debug lto)
+INTEGRITY_CHECK=(sha256)
+STRIP_BINARIES="--strip-all"
+STRIP_SHARED="--strip-unneeded"
+STRIP_STATIC="--strip-debug"
+MAN_DIRS=({usr{,/local}{,/share},opt/*}/{man,info})
+DOC_DIRS=(usr/{,local/}{,share/}{doc,gtk-doc} opt/*/{doc,gtk-doc})
+PURGE_TARGETS=(usr/{,share}/info/dir .packlist *.pod)
+DBGSRCDIR="/usr/src/debug"
+LIB_DIRS=('lib:usr/lib' 'lib32:usr/lib32')
+#########################################################################
+# COMPRESSION DEFAULTS
+#########################################################################
+COMPRESSGZ=(gzip -c -f -n)
+COMPRESSBZ2=(bzip2 -c -f)
+COMPRESSXZ=(xz -c -T $numberofcores -z -)
+COMPRESSZST=(zstd -c -T0 --ultra -20 -)
+COMPRESSLRZ=(lrzip -q)
+COMPRESSLZO=(lzop -q)
+COMPRESSZ=(compress -c -f)
+COMPRESSLZ4=(lz4 -q)
+COMPRESSLZ=(lzip -c -f)
+#########################################################################
+# END
+#########################################################################
+EOF
   fi
 fi
 ##################################################################################################################
@@ -398,7 +449,6 @@ install_pkg bash
 install_pkg bash-completion
 install_pkg biosdevname
 install_pkg certbot
-install_pkg chrony
 install_pkg cockpit
 install_pkg cockpit-bridge
 install_pkg cockpit-system
@@ -550,16 +600,22 @@ if system_service_active named || port_in_use "53"; then
 else
   devnull rm -Rf /etc/named* /var/named/*
 fi
-devnull rm -Rf /etc/ntp* /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf
+if [ -z "$(type -p chronyd)" ]; then
+  devnull rm -Rf /etc/chrony*
+fi
+if [ -z "$(type -p ntp)" ]; then
+  devnull rm -Rf /etc/ntp*
+fi
+devnull rm -Rf /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
-NETDEV="$(ip route | grep default | sed -e "s/^.*dev.//" -e "s/.proto.*//")"
-[ -n "$NETDEV" ] && mycurrentipaddress_6="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v 'docker' | grep inet6 | grep -i 'global' | awk '{print $2}' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -Ev '^::1|^$' | grep ':.*:' | head -n1 | grep '^' || echo '::1')"
-[ -n "$NETDEV" ] && mycurrentipaddress_4="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v '127.0.0.' | grep inet | grep -v 'inet6' | awk '{print $2}' | sed 's#addr:##g' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -vE '|127\.0\.0|172\.17\.0|:.*:|^$' | head -n1 | grep '[0-9]\.[0-9]' || echo '127.0.0.1')"
-set_domainname="$(hostname -f | awk -F '.' '{$1="";OFS="." ; print $0}' | sed 's/^.//' | tr ' ' '.' | grep '^' || hostname -f)"
+set_domainname="$(domain_name)"
 myhostnameshort="$(hostname -s)"
 myserverdomainname="$(hostname -f)"
+NETDEV="$(ip route | grep 'default' | sed -e "s/^.*dev.//" -e "s/.proto.*//")"
+[ -n "$NETDEV" ] && mycurrentipaddress_6="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v 'docker' | grep inet6 | grep -i 'global' | awk '{print $2}' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -Ev '^::1|^$' | grep ':.*:' | head -n1 | grep '^' || echo '::1')"
+[ -n "$NETDEV" ] && mycurrentipaddress_4="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v '127.0.0.' | grep inet | grep -v 'inet6' | awk '{print $2}' | sed 's#addr:##g' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -vE '|127\.0\.0|172\.17\.0|:.*:|^$' | head -n1 | grep '[0-9]\.[0-9]' || echo '127.0.0.1')"
 devnull find /tmp/configs -type f -iname "*.sh" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.pl" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
@@ -577,8 +633,8 @@ devnull sed -i "s#mydomain#$set_domainname#g" /etc/sysconfig/network
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
-grep -q '^apache' /etc/passwd && devnull chown -Rf apache:apache "/var/www" "/usr/share/httpd"
-grep -q '^named' /etc/passwd && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
+grep -q '^apache:' /etc/passwd && devnull chown -Rf apache:apache "/var/www" "/usr/share/httpd"
+grep -q '^named:' /etc/passwd && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
 devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
 devnull newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
