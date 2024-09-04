@@ -106,6 +106,9 @@ system_service_active() { (systemctl is-enabled "$1" || systemctl is-active "$1"
 system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable --now $1" "Enabling service: $1" || return 1; }
 system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+does_user_exist() { grep -qs "^$1:" "/etc/passwd" || return 1; }
+does_group_exist() { grep -qs "^$1:" "/etc/group" || return 1; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __dnf_yum() {
   local rhel_pkgmgr="" opts="--skip-broken"
   rhel_pkgmgr="$(builtin type -P dnf || builtin type -P yum || false)"
@@ -633,8 +636,8 @@ devnull sed -i "s#mydomain#$set_domainname#g" /etc/sysconfig/network
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
-grep -q '^apache:' /etc/passwd && devnull chown -Rf apache:apache "/var/www" "/usr/share/httpd"
-grep -q '^named:' /etc/passwd && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
+does_user_exist 'apache' && devnull chown -Rf apache:apache "/var/www" "/usr/share/httpd"
+does_user_exist 'named' && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
 devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
 devnull newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
@@ -679,6 +682,10 @@ fi
 ##################################################################################################################
 printf_head "Setting up munin-node"
 ##################################################################################################################
+mkdir -p "/var/log/munin"
+chmod -f 777 "/var/log/munin"
+does_user_exist 'munin' && chown -Rf "/var/log/munin"
+does_group_exist "munin" && chgrp -Rf "/var/log/munin"
 bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
 ##################################################################################################################
 printf_head "Setting up tor"
