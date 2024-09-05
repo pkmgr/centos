@@ -616,6 +616,7 @@ printf_head "setting up config files"
 set_domainname="$(domain_name)"
 myhostnameshort="$(hostname -s)"
 myserverdomainname="$(hostname -f)"
+does_lo_have_ipv6="$(ifconfig lo | grep 'inet6' | grep -q '::1' && echo yes || false)"
 NETDEV="$(ip route | grep 'default' | sed -e "s/^.*dev.//" -e "s/.proto.*//")"
 [ -n "$NETDEV" ] && mycurrentipaddress_6="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v 'docker' | grep inet6 | grep -i 'global' | awk '{print $2}' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -Ev '^::1|^$' | grep ':.*:' | head -n1 | grep '^' || echo '::1')"
 [ -n "$NETDEV" ] && mycurrentipaddress_4="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v '127.0.0.' | grep inet | grep -v 'inet6' | awk '{print $2}' | sed 's#addr:##g' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -vE '|127\.0\.0|172\.17\.0|:.*:|^$' | head -n1 | grep '[0-9]\.[0-9]' || echo '127.0.0.1')"
@@ -623,11 +624,12 @@ devnull find /tmp/configs -type f -iname "*.sh" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.pl" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname ".gitkeep" -exec rm -Rf {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \; &>/dev/null
-devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \; &>/dev/null
-devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$myserverdomainname#g" {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$myhostnameshort#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$set_domainname#g" {} \;
+devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$myhostnameshort#g" {} \;
+devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$myserverdomainname#g" {} \;
+devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \; &>/dev/null
+devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \; &>/dev/null
+[ -n "$does_lo_have_ipv6" ] || sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' /tmp/configs/etc/postfix/main.cf
 devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
 devnull mkdir -p /etc/rsync.d /var/log/named
 devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
@@ -684,8 +686,8 @@ printf_head "Setting up munin-node"
 ##################################################################################################################
 mkdir -p "/var/log/munin"
 chmod -f 777 "/var/log/munin"
-does_user_exist 'munin' && chown -Rf "/var/log/munin"
-does_group_exist "munin" && chgrp -Rf "/var/log/munin"
+does_user_exist 'munin' && chown -Rf "munin" "/var/log/munin"
+does_group_exist "munin" && chgrp -Rf "munin" "/var/log/munin"
 bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
 ##################################################################################################################
 printf_head "Setting up tor"
