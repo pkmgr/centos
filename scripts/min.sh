@@ -673,7 +673,8 @@ update-ca-trust && update-ca-trust extract
 [ -f "/etc/certbot/dns.conf" ] && chmod 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && acme-cli
 if [ -d "/etc/letsencrypt/live/$(domainname)" ] || [ -L "/etc/letsencrypt/live/domain" ]; then
   le_certs=yes
-  if [ ! -e "/etc/letsencrypt/live/domain" ]; then
+  if [ ! -L "/etc/letsencrypt/live/domain" ]; then
+    rm -Rf "/etc/letsencrypt/live/domain"
     ln -s "/etc/letsencrypt/live/$(domainname)" "/etc/letsencrypt/live/domain"
   fi
 fi
