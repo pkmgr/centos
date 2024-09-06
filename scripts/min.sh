@@ -606,6 +606,9 @@ fi
 if [ -z "$(type -p chronyd)" ]; then
   devnull rm -Rf /etc/chrony*
 fi
+if [ -f "/etc/certbot/dns.conf" ]; then
+  devnull rm -rf "/tmp/configs/etc/certbot/dns.conf"
+fi
 if [ -z "$(type -p ntp)" ]; then
   devnull rm -Rf /etc/ntp*
 fi
@@ -668,10 +671,13 @@ printf_head "Setting up ssl certificates"
 update-ca-trust && update-ca-trust extract
 # If using letsencrypt certificates
 [ -f "/etc/certbot/dns.conf" ] && chmod 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && acme-cli
-if [ -d "/etc/letsencrypt/live/$(domainname)" ]; then
+if [ -d "/etc/letsencrypt/live/$(domainname)" ] || [ -L "/etc/letsencrypt/live/domain" ]; then
+  le_certs=yes
   if [ ! -e "/etc/letsencrypt/live/domain" ]; then
     ln -s "/etc/letsencrypt/live/$(domainname)" "/etc/letsencrypt/live/domain"
   fi
+fi
+if [ "$le_certs" = "yes" ]; then
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
   cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
