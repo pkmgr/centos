@@ -634,7 +634,7 @@ run_post "dfmgr install $DFMGR_CONFIGS"
 ##################################################################################################################
 printf_head "Installing custom web server files"
 ##################################################################################################################
-[ -d "/tmp/configs" ] && devnull rm -Rf "/tmp/configs"
+[ -d "/tmp/configs" ] && devnull rm_if_exists "/tmp/configs"
 devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
 devnull git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
 devnull git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
@@ -644,21 +644,21 @@ sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs "https://github.com/ca
 printf_head "Deleting files"
 ##################################################################################################################
 if system_service_active named || port_in_use "53"; then
-  devnull rm -Rf /tmp/configs/etc/named*
-  devnull rm -Rf /tmp/configs/var/named*
+  devnull rm_if_exists /tmp/configs/etc/named*
+  devnull rm_if_exists /tmp/configs/var/named*
 else
-  devnull rm -Rf /etc/named* /var/named/*
+  devnull rm_if_exists /etc/named* /var/named/*
 fi
 if [ -z "$(type -p chronyd)" ]; then
-  devnull rm -Rf /etc/chrony*
+  devnull rm_if_exists /etc/chrony*
 fi
 if [ -f "/etc/certbot/dns.conf" ]; then
-  devnull rm -rf "/tmp/configs/etc/certbot/dns.conf"
+  devnull rm_if_exists "/tmp/configs/etc/certbot/dns.conf"
 fi
 if [ -z "$(type -p ntp)" ]; then
-  devnull rm -Rf /etc/ntp*
+  devnull rm_if_exists /etc/ntp*
 fi
-devnull rm -Rf /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf
+devnull rm_if_exists /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
@@ -679,7 +679,7 @@ devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$myserverdo
 devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \; &>/dev/null
 devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \; &>/dev/null
 [ -n "$does_lo_have_ipv6" ] || sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' /tmp/configs/etc/postfix/main.cf
-devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
+devnull rm_if_exists /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
 devnull mkdir -p /etc/rsync.d /var/log/named
 devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
 devnull sed -i "s#myserverdomainname#$HOSTNAME#g" /etc/sysconfig/network
@@ -714,26 +714,42 @@ devnull timedatectl set-ntp true
 ##################################################################################################################
 printf_head "Setting up ssl certificates"
 ##################################################################################################################
-update-ca-trust && update-ca-trust extract
 # If using letsencrypt certificates
-[ -f "/etc/certbot/dns.conf" ] && chmod 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && acme-cli
-if [ -d "/etc/letsencrypt/live/$(domainname)" ] || [ -L "/etc/letsencrypt/live/domain" ]; then
-  le_certs=yes
-  if [ ! -L "/etc/letsencrypt/live/domain" ]; then
-    rm -Rf "/etc/letsencrypt/live/domain"
-    ln -s "/etc/letsencrypt/live/$(domainname)" "/etc/letsencrypt/live/domain"
-  fi
+le_primary_domain="$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null | grep '^' || echo "$HOSTNAME")"
+le_options="--primary $le_primary_domain"
+[ "$le_primary_domain" = "$le_primary_domain" ] || le_options="--primary $le_primary_domain --domains $HOSTNAME"
+[ -f "/etc/certbot/dns.conf" ] && chmod -f 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && acme-cli $le_options
+le_dir_not_empty="$(find /etc/letsencrypt/live/* -maxdepth 0 -type d | grep -vE 'domain|^$' | head -n1 | grep '^' || false)"
+[ -z "$le_dir_not_empty" ] && le_dir_not_empty="/etc/letsencrypt/live/$(domainname)" || le_certs=yes
+if [ -d "$le_dir_not_empty" ] || [ -L "/etc/letsencrypt/live/domain" ]; then
+  [ ! -L "/etc/letsencrypt/live/domain" ] && unlink "/etc/letsencrypt/live/domain" || devnull rm_if_exists "/etc/letsencrypt/live/domain"
+  ln -s "$le_dir_not_empty" "/etc/letsencrypt/live/domain"
 fi
 if [ "$le_certs" = "yes" ]; then
-  find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
-  find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
-  cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
-  cat /etc/letsencrypt/live/domain/privkey.pem >>/etc/cockpit/ws-certs.d/1-my-cert.cert
+  devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
+  cat "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/ssl/CA/CasjaysDev/private/localhost.key" >/etc/cockpit/ws-certs.d/1-my-cert.cert
+  find "/etc/postfix" "/etc/httpd" "/etc/nginx" -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
+  find "/etc/postfix" "/etc/httpd" "/etc/nginx" -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
+  find "/etc/postfix" "/etc/httpd" "/etc/nginx" -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
 else
   # If using self-signed certificates
-  find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
-  find /etc/postfix /etc/httpd /etc/cockpit/ws-certs.d -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
+  devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
+  cat "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/ssl/CA/CasjaysDev/private/localhost.key" >/etc/cockpit/ws-certs.d/1-my-cert.cert
+  find "/etc/postfix" "/etc/httpd" -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
+  find "/etc/postfix" "/etc/httpd" -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
+  find "/etc/postfix" "/etc/httpd" -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
 fi
+if [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ]; then
+  if [ -d "/usr/local/share/ca-certificate" ]; then
+    cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/usr/local/share/ca-certificate/"
+  elif [ -d "/etc/pki/ca-trust/source/" ]; then
+    cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/pki/ca-trust/source/"
+  elif [ -d "/etc/pki/ca-trust/source/anchors" ]; then
+    cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/pki/ca-trust/source/anchors/"
+  fi
+fi
+[ -n "$(type -P update-ca-trust)" ] && devnull update-ca-trust && devnull update-ca-trust extract
+[ -n "$(type -P update-ca-trust)" ] && devnull update-ca-trust && devnull update-ca-trust extract
 ##################################################################################################################
 printf_head "Setting up munin-node"
 ##################################################################################################################
@@ -745,17 +761,25 @@ bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
 ##################################################################################################################
 printf_head "Setting up tor"
 ##################################################################################################################
-if [ -f "/var/lib/tor/hidden_service/default/hostname" ]; then
-  cat /var/lib/tor/hidden_service/*/hostname >"/var/www/html/tor_hostname" 2>/dev/null
+if [ -n "$(type -P tor 2>/dev/null)" ]; then
+  devnull systemctl restart tor && sleep 5
+  tor_hostnames="$(find "/var/lib/tor/hidden_service" -type f -name 'hostname' 2>/dev/null | grep '^' || false)"
+  if [ -n "$tor_hostnames" ]; then
+    devnull rm_if_exists "/var/www/html/tor_hostname"
+    for f in $tor_hostnames; do
+      cat "$f" >>"/var/www/html/tor_hostname" 2>/dev/null
+    done
+  fi
+  prinf '%s\n\%s\n' "# Generate tor hosnames" "#30 * * * * root " >"/etc/cron.d/tor_hostname"
 fi
 ##################################################################################################################
 printf_head "Setting up bind dns [named]"
 ##################################################################################################################
 if [ -z "$(command -v named)" ]; then
   devnull rm_if_exists /etc/named
-  devnull rm_if_exists /etc/logrotate.d/named
   devnull rm_if_exists /var/named
   devnull rm_if_exists /var/log/named
+  devnull rm_if_exists /etc/logrotate.d/named
 fi
 ##################################################################################################################
 if [ "$SYSTEM_TYPE" = "mail" ]; then
@@ -785,9 +809,9 @@ printf_head "Fixing ip address"
 printf_head "Cleaning up"
 ##################################################################################################################
 [ -f "/etc/yum/pluginconf.d/subscription-manager.conf" ] && echo "" >"/etc/yum/pluginconf.d/subscription-manager.conf"
-find / -iname '*.rpmnew' -exec rm -Rf {} \; >/dev/null 2>&1
-find / -iname '*.rpmsave' -exec rm -Rf {} \; >/dev/null 2>&1
-rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
+find "/etc" "/usr" "/var" -iname '*.rpmnew' -exec rm -Rf {} \; >/dev/null 2>&1
+find "/etc" "/usr" "/var" -iname '*.rpmsave' -exec rm -Rf {} \; >/dev/null 2>&1
+devnull rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
 devnull retrieve_repo_file
 chown -Rf apache:apache "/var/www"
 history -c && history -w
