@@ -327,8 +327,8 @@ __kernel_ml() {
     printf_green "You are already running kernel-ml: $kernel"
   else
     printf_blue "Switching to the newest kernel from elrepo"
-    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do rpm -ev --nodeps $p; done
-    yum install -y kernel-ml* || exitC=1
+    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do rpm -ev --nodeps $p; done >/dev/null
+    yum install -yyq kernel-ml* >/dev/null || exitC=1
     run_grub
   fi
   exit $exitC
@@ -342,8 +342,8 @@ __kernel_lt() {
     printf_green "You are already running kernel-lt: $kernel"
   else
     printf_blue "Switching to the newest lts kernel from elrepo"
-    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do rpm -ev --nodeps $p; done
-    yum install -y kernel-lt* || exitC=1
+    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do rpm -ev --nodeps $p; done >/dev/null
+    yum install -yyq kernel-lt* >/dev/null || exitC=1
     run_grub
   fi
   exit $exitC
