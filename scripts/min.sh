@@ -321,32 +321,30 @@ run_post() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __kernel_ml() {
   local kernel
-  local exitC=0
   kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
   if [ -n "$kernel" ]; then
     printf_green "You are already running kernel-ml: $kernel"
+    return
   else
     printf_blue "Switching to the newest kernel from elrepo"
     for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do rpm -ev --nodeps $p; done >/dev/null
     yum install -yyq kernel-ml* >/dev/null || exitC=1
-    run_grub
+    run_grub && printf_green "Rebooting the system - Please rerun this script after reboot" && reboot || exit 1
   fi
-  exit $exitC
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __kernel_lt() {
   local kernel
-  local exitC=0
   kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
   if [ -n "$kernel" ]; then
     printf_green "You are already running kernel-lt: $kernel"
+    return
   else
     printf_blue "Switching to the newest lts kernel from elrepo"
     for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do rpm -ev --nodeps $p; done >/dev/null
     yum install -yyq kernel-lt* >/dev/null || exitC=1
-    run_grub
+    run_grub && printf_green "Rebooting the system - Please rerun this script after reboot" && reboot || exit 1
   fi
-  exit $exitC
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 fix_network_device_name() {
@@ -388,6 +386,8 @@ if [ "$KERNEL" = "ml" ] || [ "$KERNEL" = "kernel-ml" ]; then
   __kernel_ml
 elif [ "$KERNEL" = "lt" ] || [ "$KERNEL" = "kernel-lt" ]; then
   __kernel_lt
+else
+  KERNEL="kernel"
 fi
 ##################################################################################################################
 printf_head "Disabling selinux"
