@@ -327,7 +327,10 @@ __kernel_ml() {
     return
   else
     printf_blue "Switching to the newest kernel from elrepo"
-    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do rpm -ev --nodeps $p; done >/dev/null
+    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do
+      rpm -ev --nodeps $p
+      yum remove -yy $p* >/dev/null 2>&1
+    done >/dev/null
     yum install -yyq kernel-ml* >/dev/null || exitC=1
     run_grub && printf_green "Rebooting the system - Please rerun this script after reboot" && reboot || exit 1
   fi
@@ -341,7 +344,10 @@ __kernel_lt() {
     return
   else
     printf_blue "Switching to the newest lts kernel from elrepo"
-    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do rpm -ev --nodeps $p; done >/dev/null
+    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do
+      rpm -ev --nodeps $p
+      yum remove -yy $p* >/dev/null 2>&1
+    done >/dev/null
     yum install -yyq kernel-lt* >/dev/null || exitC=1
     run_grub && printf_green "Rebooting the system - Please rerun this script after reboot" && reboot || exit 1
   fi
