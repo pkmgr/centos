@@ -749,7 +749,7 @@ if [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ]; then
   fi
 fi
 [ -n "$(type -P update-ca-trust)" ] && devnull update-ca-trust && devnull update-ca-trust extract
-[ -n "$(type -P update-ca-trust)" ] && devnull update-ca-trust && devnull update-ca-trust extract
+[ -n "$(type -P dpkg-reconfigure)" ] && devnull dpkg-reconfigure ca-certificates
 ##################################################################################################################
 printf_head "Setting up munin-node"
 ##################################################################################################################
@@ -772,6 +772,10 @@ if [ -n "$(type -P tor 2>/dev/null)" ]; then
   fi
   prinf '%s\n\%s\n' "# Generate tor hosnames" "#30 * * * * root " >"/etc/cron.d/tor_hostname"
 fi
+##################################################################################################################
+printf_head "Setting up docker"
+##################################################################################################################
+[ -n "$(type -P dockermgr 2>/dev/null)" ] && dockermgr init
 ##################################################################################################################
 printf_head "Setting up bind dns [named]"
 ##################################################################################################################
