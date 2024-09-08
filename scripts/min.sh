@@ -14,7 +14,14 @@
 # @@Other            :
 # @@Resource         :
 # @@Terminal App     :  no
-# @@sudo/root        :  no
+# @@sudo/root        :  yes
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# shellcheck disable=SC2016
+# shellcheck disable=SC2031
+# shellcheck disable=SC2120
+# shellcheck disable=SC2155
+# shellcheck disable=SC2199
+# shellcheck disable=SC2317
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 APPNAME="min"
 VERSION="202211071239-git"
@@ -75,6 +82,7 @@ RELEASE_VER="$(grep --no-filename -s 'VERSION_ID=' /etc/*-release | awk -F '=' '
 RELEASE_NAME="$(grep --no-filename -s '^NAME=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g;s| .*||g' | tr '[:upper:]' '[:lower:]' | grep '^')"
 RELEASE_TYPE="$(grep --no-filename -s '^ID_LIKE=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g' | tr '[:upper:]' '[:lower:]' | tr ' ' '\n' | grep 'centos' | grep '^')"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+KERNEL="${KERNEL:-kernel}"
 ARCH="$(uname -m | tr '[:upper:]' '[:lower:]')"
 BACKUP_DIR="$HOME/Documents/backups/$(date +'%Y/%m/%d')"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -311,6 +319,36 @@ run_post() {
   set --
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__kernel_ml() {
+  local kernel
+  local exitC=0
+  kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
+  if [ -n "$kernel" ]; then
+    printf_green "You are already running kernel-ml: $kernel"
+  else
+    printf_blue "Switching to the newest kernel from elrepo"
+    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do rpm -ev --nodeps $p; done
+    yum install -y kernel-ml* || exitC=1
+    run_grub
+  fi
+  exit $exitC
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__kernel_lt() {
+  local kernel
+  local exitC=0
+  kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
+  if [ -n "$kernel" ]; then
+    printf_green "You are already running kernel-lt: $kernel"
+  else
+    printf_blue "Switching to the newest lts kernel from elrepo"
+    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do rpm -ev --nodeps $p; done
+    yum install -y kernel-lt* || exitC=1
+    run_grub
+  fi
+  exit $exitC
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 fix_network_device_name() {
   local device=""
   device="$(ip -4 route ls 2>/dev/null | grep default | grep -Po '(?<=dev )(\S+)' | head -n1 | grep '^' || echo 'eth0')"
@@ -343,6 +381,14 @@ if ! builtin type -P systemmgr &>/dev/null; then
   run_external "__yum clean all"
 fi
 printf_green "Installer has been initialized"
+##################################################################################################################
+printf_head "Configuring the kernel"
+##################################################################################################################
+if [ "$KERNEL" = "ml" ] || [ "$KERNEL" = "kernel-ml" ]; then
+  __kernel_ml
+elif [ "$KERNEL" = "lt" ] || [ "$KERNEL" = "kernel-lt" ]; then
+  __kernel_lt
+fi
 ##################################################################################################################
 printf_head "Disabling selinux"
 ##################################################################################################################
