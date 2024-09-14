@@ -340,9 +340,9 @@ __kernel_ml() {
     yum install -yyq kernel-ml* >/dev/null || exitC=1
     run_grub
   else
-    printf_yellow "kernel-lt doesn't seem to be avaliable"
+    printf_yellow "kernel-ml doesn't seem to be avaliable"
   fi
-  exit $exitC
+  return $exitC
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __kernel_lt() {
@@ -360,7 +360,7 @@ __kernel_lt() {
   else
     printf_yellow "kernel-lt doesn't seem to be avaliable"
   fi
-  exit $exitC
+  return $exitC
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 fix_network_device_name() {
