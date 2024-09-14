@@ -286,25 +286,33 @@ retrieve_repo_file() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
-  printf_green "Initializing grub configuration"
+  echo "Initializing grub configuration"
   local cfg="" efi="" grub_cfg="" grub_efi="" grub_bin="" grub_bin_name=""
   grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' | grep '^' || false)"
   grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' | grep '^' || false)"
   grub_bin="$(builtin type -P grub-mkconfig 2>/dev/null || builtin type -P grub2-mkconfig 2>/dev/null || false)"
   grub_bin_name="$(basename "$grub_bin" 2>/dev/null)"
   if [ -n "$grub_bin" ]; then
+    for opt in 'biosdevname=0' 'net.ifnames=0'; do
+      if ! grep -shq "$opt" '/etc/default/grub'; then
+        sed '/GRUB_CMDLINE_LINUX=/ / s/"$/ /'$opt'"' /etc/default/grub
+      fi
+    done
+    if ! stat -fc %T '/sys/fs/cgroup' | grep 'cgroup2fs' || ! grep -shq 'systemd.unified_cgroup_hierarchy=1' /etc/default/grub; then
+      sed '/GRUB_CMDLINE_LINUX=/ / s/"$/ /systemd.unified_cgroup_hierarchy=1"' /etc/default/grub
+    fi
     rm_if_exists /boot/*rescue*
     if [ -n "$grub_cfg" ]; then
       for cfg in $grub_cfg; do
         if [ -e "$cfg" ]; then
-          devnull $grub_bin -o "$cfg" && printf_green "Updated $cfg" || printf_return "Failed to update $cfg"
+          devnull $grub_bin -o "$cfg" && echo "Updated $cfg" || echo "Failed to update $cfg"
         fi
       done
     fi
     if [ -n "$grub_efi" ]; then
       for efi in $grub_efi; do
         if [ -e "$efi" ]; then
-          devnull $grub_bin -o "$efi" && printf_green "Updated $efi" || printf_return "Failed to update $efi"
+          devnull $grub_bin -o "$efi" && echo "Updated $efi" || echo "Failed to update $efi"
         fi
       done
     fi
@@ -320,37 +328,39 @@ run_post() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __kernel_ml() {
-  local kernel
-  kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
+  local exitC=0
+  local kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
+  local kernel_avail="$(yum search kernel-ml 2>&1 | awk '{print $1}' | grep '^kernel-ml\.' || return)"
   if [ -n "$kernel" ]; then
-    printf_green "You are already running kernel-ml: $kernel"
-    return
-  else
-    printf_blue "Switching to the newest kernel from elrepo"
-    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do
-      rpm -ev --nodeps $p
-      yum remove -yy $p* >/dev/null 2>&1
-    done >/dev/null
+    echo "You are already running kernel-ml: $kernel"
+  elif [ -n "$kernel_avail" ]; then
+    echo "switch to the newest kernel from elrepo"
+    pkgs="$(rpm -qa | grep -v 'kernel-ml' | grep '^kernel')"
+    [ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
     yum install -yyq kernel-ml* >/dev/null || exitC=1
-    run_grub && printf_green "Rebooting the system - Please rerun this script after reboot" && reboot || exit 1
+    run_grub
+  else
+    printf_yellow "kernel-lt doesn't seem to be avaliable"
   fi
+  exit $exitC
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __kernel_lt() {
-  local kernel
-  kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
+  local exitC=0
+  local kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
+  local kernel_avail="$(yum search kernel-ml 2>&1 | awk '{print $1}' | grep '^kernel-ml\.' || return)"
   if [ -n "$kernel" ]; then
-    printf_green "You are already running kernel-lt: $kernel"
-    return
-  else
-    printf_blue "Switching to the newest lts kernel from elrepo"
-    for p in $(rpm -qa --queryformat "%{NAME}\n" | grep 'kernel' | sort -u); do
-      rpm -ev --nodeps $p
-      yum remove -yy $p* >/dev/null 2>&1
-    done >/dev/null
+    echo "You are already running kernel-lt: $kernel"
+  elif [ -n "$kernel_avail" ]; then
+    echo "switch to the newest kernel from elrepo"
+    pkgs="$(rpm -qa | grep -v 'kernel-lt' | grep '^kernel')"
+    [ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
     yum install -yyq kernel-lt* >/dev/null || exitC=1
-    run_grub && printf_green "Rebooting the system - Please rerun this script after reboot" && reboot || exit 1
+    run_grub
+  else
+    printf_yellow "kernel-lt doesn't seem to be avaliable"
   fi
+  exit $exitC
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 fix_network_device_name() {
