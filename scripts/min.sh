@@ -332,9 +332,9 @@ __kernel_ml() {
   local kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
   local kernel_avail="$(yum search kernel-ml 2>&1 | awk '{print $1}' | grep '^kernel-ml-.*[.]' || return)"
   if [ -n "$kernel" ]; then
-    echo "You are already running kernel-ml: $kernel"
+    printf_green "You are already running kernel-ml: $kernel"
   elif [ -n "$kernel_avail" ]; then
-    echo "switch to the newest kernel from elrepo"
+    printf_cyan "Switching to the newest kernel from elrepo - This may take a few minutes"
     pkgs="$(rpm -qa | grep -v 'kernel-ml' | grep '^kernel')"
     [ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
     yum install -yyq kernel-ml* >/dev/null || exitC=1
@@ -351,9 +351,9 @@ __kernel_lt() {
   local kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
   local kernel_avail="$(yum search kernel-lt 2>&1 | awk '{print $1}' | grep '^kernel-lt-.*[.]' || return)"
   if [ -n "$kernel" ]; then
-    echo "You are already running kernel-lt: $kernel"
+    printf_green "You are already running kernel-lt: $kernel"
   elif [ -n "$kernel_avail" ]; then
-    echo "switch to the newest kernel from elrepo"
+    printf_cyan "Switching to the newest LTS kernel from elrepo - This may take a few minutes"
     pkgs="$(rpm -qa | grep -v 'kernel-lt' | grep '^kernel')"
     [ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
     yum install -yyq kernel-lt* >/dev/null || exitC=1
