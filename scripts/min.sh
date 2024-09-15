@@ -82,7 +82,7 @@ RELEASE_VER="$(grep --no-filename -s 'VERSION_ID=' /etc/*-release | awk -F '=' '
 RELEASE_NAME="$(grep --no-filename -s '^NAME=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g;s| .*||g' | tr '[:upper:]' '[:lower:]' | grep '^')"
 RELEASE_TYPE="$(grep --no-filename -s '^ID_LIKE=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g' | tr '[:upper:]' '[:lower:]' | tr ' ' '\n' | grep 'centos' | grep '^')"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-KERNEL="${KERNEL:-kernel-ml}"
+DEFAULT_KERNEL="${DEFAULT_KERNEL:-kernel-ml}"
 ARCH="$(uname -m | tr '[:upper:]' '[:lower:]')"
 BACKUP_DIR="$HOME/Documents/backups/$(date +'%Y/%m/%d')"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -295,7 +295,7 @@ run_grub() {
   if [ -n "$grub_bin" ]; then
     for opt in 'biosdevname=0' 'net.ifnames=0'; do
       if ! grep -shq "$opt" '/etc/default/grub'; then
-        sed '/GRUB_CMDLINE_LINUX=/ / s/"$/ /'$opt'"' /etc/default/grub
+        sed '/GRUB_CMDLINE_LINUX=/ / s/"$/ '$opt'"/' /etc/default/grub
       fi
     done
     if ! stat -fc %T '/sys/fs/cgroup' | grep 'cgroup2fs' || ! grep -shq 'systemd.unified_cgroup_hierarchy=1' /etc/default/grub; then
@@ -330,7 +330,7 @@ run_post() {
 __kernel_ml() {
   local exitC=0
   local kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
-  local kernel_avail="$(yum search kernel-ml 2>&1 | awk '{print $1}' | grep '^kernel-ml\.' || return)"
+  local kernel_avail="$(yum search kernel-ml 2>&1 | awk '{print $1}' | grep '^kernel-ml-.*[.]' || return)"
   if [ -n "$kernel" ]; then
     echo "You are already running kernel-ml: $kernel"
   elif [ -n "$kernel_avail" ]; then
@@ -341,6 +341,7 @@ __kernel_ml() {
     run_grub
   else
     printf_yellow "kernel-ml doesn't seem to be avaliable"
+    exitC=1
   fi
   return $exitC
 }
@@ -348,7 +349,7 @@ __kernel_ml() {
 __kernel_lt() {
   local exitC=0
   local kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
-  local kernel_avail="$(yum search kernel-ml 2>&1 | awk '{print $1}' | grep '^kernel-ml\.' || return)"
+  local kernel_avail="$(yum search kernel-lt 2>&1 | awk '{print $1}' | grep '^kernel-lt-.*[.]' || return)"
   if [ -n "$kernel" ]; then
     echo "You are already running kernel-lt: $kernel"
   elif [ -n "$kernel_avail" ]; then
@@ -359,6 +360,7 @@ __kernel_lt() {
     run_grub
   else
     printf_yellow "kernel-lt doesn't seem to be avaliable"
+    exitC=1
   fi
   return $exitC
 }
@@ -398,12 +400,12 @@ printf_green "Installer has been initialized"
 ##################################################################################################################
 printf_head "Configuring the kernel"
 ##################################################################################################################
-if [ "$KERNEL" = "ml" ] || [ "$KERNEL" = "kernel-ml" ]; then
+if [ "$DEFAULT_KERNEL" = "ml" ] || [ "$DEFAULT_KERNEL" = "kernel-ml" ]; then
   __kernel_ml
-elif [ "$KERNEL" = "lt" ] || [ "$KERNEL" = "kernel-lt" ]; then
+elif [ "$DEFAULT_KERNEL" = "lt" ] || [ "$DEFAULT_KERNEL" = "kernel-lt" ]; then
   __kernel_lt
 else
-  KERNEL="kernel"
+  DEFAULT_KERNEL="kernel"
 fi
 ##################################################################################################################
 printf_head "Disabling selinux"
