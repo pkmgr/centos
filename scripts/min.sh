@@ -295,11 +295,11 @@ run_grub() {
   if [ -n "$grub_bin" ]; then
     for opt in 'biosdevname=0' 'net.ifnames=0'; do
       if ! grep -shq "$opt" '/etc/default/grub'; then
-        sed '/GRUB_CMDLINE_LINUX=/ / s/"$/ '$opt'"/' /etc/default/grub
+        sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ '$opt'"/' /etc/default/grub
       fi
     done
-    if ! stat -fc %T '/sys/fs/cgroup' | grep 'cgroup2fs' || ! grep -shq 'systemd.unified_cgroup_hierarchy=1' /etc/default/grub; then
-      sed '/GRUB_CMDLINE_LINUX=/ / s/"$/ /systemd.unified_cgroup_hierarchy=1"' /etc/default/grub
+    if ! stat -fc %T '/sys/fs/cgroup' | grep 'cgroup2fs' && ! grep -shq 'systemd.unified_cgroup_hierarchy=1' /etc/default/grub; then
+      sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ systemd.unified_cgroup_hierarchy=1"/' /etc/default/grub
     fi
     rm_if_exists /boot/*rescue*
     if [ -n "$grub_cfg" ]; then
