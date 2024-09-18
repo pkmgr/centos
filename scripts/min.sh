@@ -517,6 +517,9 @@ install_pkg bash-completion
 install_pkg biosdevname
 install_pkg certbot
 install_pkg cockpit
+install_pkg cockpit-packagekit
+install_pkg cockpit-storaged
+install_pkg cockpit-ws
 install_pkg cockpit-bridge
 install_pkg cockpit-system
 install_pkg cockpit-ws
