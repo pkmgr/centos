@@ -818,6 +818,18 @@ elif [ "$SYSTEM_TYPE" = "dns" ] || [ "$set_domainname" = "casjaydns.com" ]; then
   [ -f "$HOME/Projects/github/dfprivate/dns/install.sh" ] && eval "$HOME/Projects/github/dfprivate/dns/install.sh" >/dev/null 2>&1
 fi
 ##################################################################################################################
+printf_head "Generating default webserver for $HOSTNAME"
+##################################################################################################################
+if [ -d "/var/www/nginx/domains/$HOSTNAME" ]; then
+  printf_blue "Server directory already exists"
+else
+  if gen-nginx php $HOSTNAME >/dev/null 2>&1; then
+    printf_green "Created server in /var/www/nginx/domains/$HOSTNAME"
+  else
+    printf_red "Failed to create default server"
+  fi
+fi
+##################################################################################################################
 printf_head "Creating directories"
 ##################################################################################################################
 mkdir -p /mnt/backups /var/www/html/.well-known /etc/letsencrypt/live
