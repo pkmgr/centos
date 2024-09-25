@@ -742,8 +742,8 @@ le_options="--primary $le_primary_domain"
 [ -f "/etc/certbot/dns.conf" ] && chmod -f 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && acme-cli $le_options
 le_dir_not_empty="$(find /etc/letsencrypt/live/* -maxdepth 0 -type d | grep -vE 'domain|^$' | head -n1 | grep '^' || false)"
 [ -z "$le_dir_not_empty" ] && le_dir_not_empty="/etc/letsencrypt/live/$(domainname)" || le_certs=yes
-if [ -d "$le_dir_not_empty" ] || [ -L "/etc/letsencrypt/live/domain" ]; then
-  [ ! -L "/etc/letsencrypt/live/domain" ] && unlink "/etc/letsencrypt/live/domain" || devnull rm_if_exists "/etc/letsencrypt/live/domain"
+[ -L "/etc/letsencrypt/live/domain" ] || { [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "/etc/letsencrypt/live/domain"; }
+if [ -d "$le_dir_not_empty" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
   ln -s "$le_dir_not_empty" "/etc/letsencrypt/live/domain"
 fi
 if [ "$le_certs" = "yes" ]; then
