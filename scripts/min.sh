@@ -106,7 +106,6 @@ SERVICES_DISABLE="avahi-daemon.service avahi-daemon.socket cups.path cups.servic
 grep --no-filename -sE '^ID=|^ID_LIKE=|^NAME=' /etc/*-release | grep -qiwE "$SCRIPT_OS" && true || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$1" == "--help" ] && printf_exit "${GREEN}${SCRIPT_DESCRIBE} installer for $SCRIPT_OS${NC}"
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 port_in_use() { netstatg 2>&1 | awk '{print $4}' | grep ':[0-9]' | awk -F':' '{print $2}' | grep '[0-9]' | grep -q "^$1$" || return 2; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 system_service_exists() { systemctl status "$1" 2>&1 | grep 'Loaded:' | grep -iq "$1" && return 0 || return 1; }
@@ -213,6 +212,16 @@ run_init_check() {
     fi
   fi
   yum clean all &>/dev/null || true
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__domainname() {
+  local domain=""
+  if [ -n "$(type -P domainname)" ]; then
+    domain="$(domainname 2>/dev/null | grep -v '(none)' | grep '^')"
+  elif [ -n "$(type -P hostname)" ]; then
+    domain="$(hostname -d 2>/dev/null | grep -v '(none)' | grep '^')"
+  fi
+  echo "${domain:-$HOSTNAME}"
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __yum() { yum "$@" $yum_opts &>/dev/null || return 1; }
@@ -741,7 +750,7 @@ le_options="--primary $le_primary_domain"
 [ "$le_primary_domain" = "$le_primary_domain" ] || le_options="--primary $le_primary_domain --domains $HOSTNAME"
 [ -f "/etc/certbot/dns.conf" ] && chmod -f 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && acme-cli $le_options
 le_dir_not_empty="$(find /etc/letsencrypt/live/* -maxdepth 0 -type d | grep -vE 'domain|^$' | head -n1 | grep '^' || false)"
-[ -z "$le_dir_not_empty" ] && le_dir_not_empty="/etc/letsencrypt/live/$(domainname)" || le_certs=yes
+[ -z "$le_dir_not_empty" ] && le_dir_not_empty="/etc/letsencrypt/live/$(__domainname)" || le_certs=yes
 [ -L "/etc/letsencrypt/live/domain" ] || { [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "/etc/letsencrypt/live/domain"; }
 if [ -d "$le_dir_not_empty" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
   ln -s "$le_dir_not_empty" "/etc/letsencrypt/live/domain"
