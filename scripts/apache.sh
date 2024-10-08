@@ -77,6 +77,8 @@ RELEASE_TYPE="$(grep --no-filename -s '^ID_LIKE=' /etc/*-release | awk -F'=' '{p
 ARCH="$(uname -m | tr '[:upper:]' '[:lower:]')"
 BACKUP_DIR="$HOME/Documents/backups/$(date +'%Y/%m/%d')"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+SSH_KEY_LOCATION="${SSH_KEY_LOCATION:-https://github.com/$GITHUB_USER.keys}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SERVICES_ENABLE="cockpit cockpit.socket httpd munin-node php-fpm postfix sshd"
 SERVICES_DISABLE="avahi-daemon.service avahi-daemon.socket chrony cups.path cups.service cups.socket dhcpd dhcpd6 dm-event.socket fail2ban firewalld import-state.service irqbalance.service iscsi iscsid.socket iscsiuio.socket kdump loadmodules.service lvm2-lvmetad.socket lvm2-lvmpolld.socket lvm2-monitor mdmonitor multipathd.service multipathd.socket nfs-client.target nis-domainname.service qemu-guest-agent.service radvd rpcbind.service rpcbind.socket shorewall shorewall6 sssd-kcm.socket timedatex.service tuned.service udisks2.service"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -155,22 +157,22 @@ EOF
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 get_user_ssh_key() {
-  [ -n "$GITHUB_USER" ] || return 0
-  printf_green "Grabbing ssh key: $GITHUB_USER for $USER"
   local ssh_key=""
-  ssh_key="$(curl -q -LSsf "https://github.com/$GITHUB_USER.keys" 2>/dev/null | grep '^' || echo '')"
-  if [ -n "$ssh_key" ]; then
-    [ -d "/root/.ssh" ] || mkdir -p "/root/.ssh"
-    [ -f "/root/.ssh/authorized_keys" ] || touch "/root/.ssh/authorized_keys"
-    if grep -sq "$ssh_key" "/root/.ssh/authorized_keys"; then
-      printf_cyan "key for $GITHUB_USER already exists in ~/.ssh/authorized_keys"
-    else
-      echo "$ssh_key" | tee -a "/root/.ssh/authorized_keys" &>/dev/null
-      printf_green "Successfully added github ssh key"
-    fi
-    return 0
+  [ -n "$SSH_KEY_LOCATION" ] || return 0
+  [ -d "$HOME/.ssh" ] || mkdir -p "$HOME/.ssh"
+  chmod 700 "$HOME/.ssh"
+  get_keys="$(curl -q -LSsf "$SSH_KEY_LOCATION" 2>/dev/null | grep '^' || false)"
+  if [ -n "$get_keys" ]; then
+    echo "$get_keys" | while read -r key; do
+      if grep -qs "$key" "$HOME/.ssh/authorized_keys"; then
+        printf_cyan "${key:0:80} exists in ~/.ssh/authorized_keys"
+      else
+        echo "$ssh_key" | tee -a "/root/.ssh/authorized_keys" &>/dev/null
+        printf_green "Successfully added github ${key:0:80}"
+      fi
+    done
   else
-    printf_return "Can not get key from https://github.com/$GITHUB_USER.keys"
+    printf_return "Can not get key from $SSH_KEY_LOCATION"
     return 1
   fi
 }
@@ -339,7 +341,7 @@ if [ -f /etc/makepkg.conf ]; then
   fi
 fi
 ##################################################################################################################
-printf_head "Grabbing ssh key from github"
+printf_head "Grabbing ssh key[s]: from $SSH_KEY_LOCATION for $USER"
 ##################################################################################################################
 get_user_ssh_key
 ##################################################################################################################
