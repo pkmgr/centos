@@ -310,7 +310,7 @@ retrieve_repo_file() {
   local statusCode="0"
   local YUM_DELETE="true"
   yum clean all &>/dev/null
-  if [ "$RELEASE_TYPE" = "centos" ] && [ "$(hostname -s)" != "pbx" ]; then
+  if [ "$RELEASE_TYPE" = "centos" ] && [ "$SET_HOSTNAME" != "pbx" ]; then
     if [ "$RELEASE_VER" -ge "9" ]; then
       YUM_DELETE="yes"
       REPO_REPLACE="no"
@@ -772,7 +772,7 @@ devnull rm_if_exists /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/ht
 printf_head "setting up config files"
 ##################################################################################################################
 set_domainname="$(domain_name)"
-myhostnameshort="$(hostname -s)"
+myhostnameshort="$SET_HOSTNAME"
 myserverdomainname="$(hostname -f)"
 does_lo_have_ipv6="$(ifconfig lo | grep 'inet6' | grep -q '::1' && echo yes || false)"
 NETDEV="$(ip route | grep 'default' | sed -e "s/^.*dev.//" -e "s/.proto.*//")"
@@ -858,6 +858,18 @@ devnull firewall-cmd --reload
 printf_head "Configuring applications"
 ##################################################################################################################
 devnull timedatectl set-ntp true
+##################################################################################################################
+printf_head "Configuring cloudflare dns for $SET_HOSTNAME"
+##################################################################################################################
+if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
+  if [ -n "$(type -P "cloudflare")" ] && [ -n "" ]; then
+    if devnull cloudflare update $SET_HOSTNAME; then
+      printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
+    elif devnull cloudflare create $SET_HOSTNAME; then
+      printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
+    fi
+  fi
+fi
 ##################################################################################################################
 printf_head "Setting up ssl certificates"
 ##################################################################################################################
