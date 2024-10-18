@@ -32,27 +32,78 @@ SRC_DIR="${BASH_SOURCE%/*}"
 # Set bash options
 if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if ! swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^'; then
-  echo "Creating and enabling swapfile"
-  mkdir -p "/var/cache/swaps"
-  dd if=/dev/zero of=/var/cache/swaps/swapFile bs=1024 count=1048576 &>/dev/null
-  chmod 600 /var/cache/swaps/swapFile
-  mkswap /var/cache/swaps/swapFile &>/dev/null
-  swapon /var/cache/swaps/swapFile &>/dev/null
-  if ! grep -q '/var/cache/swaps/swapFile' "/var/cache/swaps/swapFile"; then
-    echo "/var/cache/swaps/swapFile swap swap defaults 0 0" >>/etc/fstab
+if [ ! -d "/etc/casjaysdev" ]; then
+  if yum makecache && yum update -yy; then
+    echo "Rebooting your system: Please rerun this script after reboot"
+    mkdir -p "/etc/casjaysdev"
+    sleep 20 && reboot
   fi
-  swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^' && echo "Swap has been enabled"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+if [ -z "$(type -P ifconfig)" ] && [ -z "$(type -P hostname)" ]; then
+  yum install -yy net-tools -q
+fi
 for pkg in sudo git curl wget; do
   command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && yum install -yy -q $pkg &>/dev/null || exit 1; } || { echo "Failed to install $pkg" && exit 1; }
 done
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+read -t 30 -p "Enter your full hostname: (default: $HOSTNAME) " set_hostname
+set_hostname="${set_hostname:=$HOSTNAME}"
+if [ -n "$set_hostname" ]; then
+  hostnamectl set-hostname $set_hostname && echo "$set_hostname" >/etc/hostname || false
+  [ $? -eq 0 ] && [ -n "$(type -P hostname)" ] && hostname -F /etc/hostname
+fi
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+if [ -n "$(type systemd-ask-password)" ]; then
+  root_pass_1="$(systemd-ask-password --emoji=no --echo=masked --timeout=30 "Enter your root password: ")"
+  root_pass_2="$(systemd-ask-password --emoji=no --echo=masked --timeout=30 "Confirm your root password: ")"
+else
+  stty -echo
+  printf "Enter your root password: " && read -t 30 -s root_pass_1
+  printf '\n'
+  printf "Confirm your root password: " && read -t 30 -s root_pass_2
+  printf '\n'
+  stty echo
+fi
+if [ -n "$root_pass_1" ] && [ -n "$root_pass_2" ]; then
+  if [ "$root_pass_1" = "$root_pass_2" ]; then
+    echo "$root_pass_1" | passwd --stdin root >/dev/null
+  fi
+fi
+unset root_pass_1 root_pass_2
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+SWAP_SIZE="$(swapon --show=SIZE --noheadings | sed 's/[0-9]//g' | head -n1 | grep 'M' || swapon --show=SIZE --noheadings | sed 's/[0-9]//g' | head -n1 | grep 'G' || false)"
+if [ "$SWAP_SIZE" != "G" ]; then
+  swap_file_size="4096"
+  swap_file="swapFile"
+  swap_dir="/var/cache/swaps"
+  kilobit="2000000"
+  gigabit=$((kilobit / 1000))
+  mem="$(free | grep ':' | awk '{print $2}' | head -n1 | grep '^' || echo "1")"
+  if [ $mem -le $kilobit ] && [ ! -f "$swap_dir/$swap_file" ]; then
+    echo "Setting up swap in $swap_dir/$swap_file"
+    echo "This may take a few minutes so enjoy your coffee"
+    mkdir -p "$swap_dir"
+    if dd if=/dev/zero of=$swap_dir/$swap_file bs=1MB count=$swap_file_size &>/dev/null; then
+      echo "swap size is: ${swap_file_size}MB"
+      chmod 600 $swap_dir/$swap_file
+      mkswap $swap_dir/$swap_file >/dev/null
+      swapon $swap_dir/$swap_file >/dev/null
+      if ! grep -qs "$swap_dir/$swap_file" /etc/fstab; then
+        echo "$swap_dir/$swap_file          swap        swap             defaults          0 0" | tee -a /etc/fstab >/dev/null
+      fi
+    fi
+  fi
+  unset SWAP_SIZE swap_file_size swap_file swap_dir kilobit gigabit mem
+  swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^' && echo "Swap has been enabled"
+  sleep 5
+fi
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ ! -d "/usr/local/share/CasjaysDev/scripts" ]; then
-  git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts -q
-  eval /usr/local/share/CasjaysDev/scripts/install.sh || { echo "Failed to initialize" && exit 1; }
+  git clone "https://github.com/casjay-dotfiles/scripts" "/usr/local/share/CasjaysDev/scripts" -q
+  eval "/usr/local/share/CasjaysDev/scripts/install.sh" || { echo "Failed to initialize" && exit 1; }
   export PATH="/usr/local/share/CasjaysDev/scripts/bin:$PATH"
+  sleep 5
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set functions
@@ -309,7 +360,7 @@ run_grub() {
         sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ '$opt'=0"/' /etc/default/grub
       fi
     done
-    if ! stat -fc %T '/sys/fs/cgroup' | grep 'cgroup2fs' && ! grep -shq 'systemd.unified_cgroup_hierarchy' /etc/default/grub; then
+    if ! stat -fc %T '/sys/fs/cgroup' | grep -q 'cgroup2fs' && ! grep -shq 'systemd.unified_cgroup_hierarchy' /etc/default/grub; then
       sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ systemd.unified_cgroup_hierarchy=1"/' /etc/default/grub
     fi
     rm_if_exists /boot/*rescue*
@@ -408,6 +459,11 @@ if ! builtin type -P systemmgr &>/dev/null; then
   run_external "__yum clean all"
 fi
 printf_green "Installer has been initialized"
+##################################################################################################################
+printf_head "Fixing initscripts"
+##################################################################################################################
+devnull rpm -ev --nodeps initscripts
+devnull yum -yy --allowerasing install initscripts net-tools
 ##################################################################################################################
 printf_head "Configuring the kernel"
 ##################################################################################################################
@@ -517,6 +573,27 @@ rm_if_exists /tmp/dotfiles
 rm_if_exists /root/anaconda-ks.cfg /var/log/anaconda
 run_external yum update -q -yy --skip-broken
 [ $RELEASE_VER -ge 9 ] && install_pkg glibc-langpack-en
+##################################################################################################################
+printf_head "Enabling ip forwarding"
+##################################################################################################################
+for sysctlconf in /etc/sysctl.conf /etc/sysctl.d/*; do
+  if grep -qsF 'net.ipv4.ip_forward' "$sysctlconf"; then
+    sed -i 's/net.ipv4.ip_forward.*/net.ipv4.ip_forward=1/g' "$sysctlconf"
+  else
+    sysctl_ip4_forward=0
+  fi
+  if grep -qsFR 'net.ipv6.conf.all.forwarding' "$sysctlconf"; then
+    sed -i 's/net.ipv6.conf.all.forwarding.*/net.ipv6.conf.all.forwarding=1/g' "$sysctlconf"
+  else
+    sysctl_ip6_forward=0
+  fi
+done
+if [ "$sysctl_ip4_forward" = 0 ]; then
+  echo "net.ipv4.ip_forward=1" >>'/etc/sysctl.conf'
+fi
+if [ "$sysctl_ip6_forward" = 0 ]; then
+  echo "net.ipv6.conf.all.forwarding=1" >>'/etc/sysctl.conf'
+fi
 ##################################################################################################################
 printf_head "Installing the packages for $RELEASE_NAME"
 ##################################################################################################################
@@ -730,15 +807,53 @@ fi
 printf_head "Enabling services"
 ##################################################################################################################
 for service_enable in $SERVICES_ENABLE; do
-  [ -n "$service_enable" ] && system_service_enable $service_enable
-  [ -n "$service_enable" ] && system_service_exists "$service_enable" && systemctl restart $service_enable >/dev/null 2>&1
+  if [ -n "$service_enable" ] && system_service_exists "$service_enable"; then
+    system_service_enable $service_enable
+    systemctl restart $service_enable >/dev/null 2>&1
+  fi
 done
 ##################################################################################################################
 printf_head "Disabling services"
 ##################################################################################################################
 for service_disable in $SERVICES_DISABLE; do
-  [ -n "$service_disable" ] && system_service_disable $service_disable
+  if [ -n "$service_disable" ] && system_service_exists "$service_disable"; then
+    system_service_disable $service_disable
+  fi
 done
+##################################################################################################################
+printf_head "Installing incus"
+##################################################################################################################
+if ! grep -Rqsi 'copr.*incus' '/etc/yum.repos.d'; then
+  dnf -y install epel-release
+  dnf -y copr enable neil/incus
+  dnf -y config-manager --enable crb
+  crb enable
+fi
+yum install -yy incus incus-tools
+##################################################################################################################
+printf_head "Initializing incus"
+##################################################################################################################
+echo "0:1000000:1000000000" | tee /etc/subuid /etc/subgid >/dev/null
+[ -n "$(type -p setupmgr)" ] && setupmgr incus
+system_service_exists "incus" && systemctl enable --now incus && incus admin init || incus_setup_failed="yes"
+##################################################################################################################
+printf_head "Creating containers"
+##################################################################################################################
+if [ "$incus_setup_failed" != "yes" ]; then
+  incus create images:debian/12 debian
+  incus create images:almalinux/9 almalinux
+  incus config set debian security.nesting=true security.privileged=true
+  incus config set almalinux security.nesting=true security.privileged=true
+  incus start debian almalinux
+else
+  printf_red "Initializing incus failed"
+fi
+##################################################################################################################
+printf_head "Configuring the firewall"
+##################################################################################################################
+devnull firewall-cmd --zone=trusted --change-interface=docker0 --permanent
+devnull firewall-cmd --zone=trusted --change-interface=incusbr0 --permanent
+devnull firewall-cmd --reload
 ##################################################################################################################
 printf_head "Configuring applications"
 ##################################################################################################################
