@@ -153,7 +153,7 @@ elif echo "$SET_HOSTNAME" | grep -qE '^devel|^build'; then
   SYSTEM_TYPE="devel"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SERVICES_ENABLE="chrony cockpit cockpit.socket docker httpd munin-node nginx ntpd php-fpm postfix proftpd rsyslog snmpd sshd uptimed downtimed"
+SERVICES_ENABLE="cockpit cockpit.socket docker httpd munin-node nginx ntpd php-fpm postfix proftpd rsyslog snmpd sshd uptimed downtimed"
 SERVICES_DISABLE="avahi-daemon.service avahi-daemon.socket cups.path cups.service cups.socket dhcpd dhcpd6 dm-event.socket fail2ban firewalld import-state.service irqbalance.service iscsi iscsid.socket iscsiuio.socket kdump loadmodules.service lvm2-lvmetad.socket lvm2-lvmpolld.socket lvm2-monitor mdmonitor multipathd.service multipathd.socket named nfs-client.target nis-domainname.service nmb radvd rpcbind.service rpcbind.socket shorewall shorewall6 smb sssd-kcm.socket timedatex.service tuned.service udisks2.service"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 grep --no-filename -sE '^ID=|^ID_LIKE=|^NAME=' /etc/*-release | grep -qiwE "$SCRIPT_OS" && true || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
@@ -729,6 +729,18 @@ install_pkg yum-utils
 install_pkg zip
 install_pkg zlib
 ##################################################################################################################
+##################################################################################################################
+if [ "$SYSTEM_TYPE" = "dns" ]; then
+  if devnull install_pkg ntp || devnull install_pkg ntpsec; then
+    printf_cyan "Installed ntp"
+    SERVICES_ENABLE="$SERVICES_ENABLE ntpd"
+    [ -d "/var/lib/ntp/stats" ] || mkdir -p "/var/lib/ntp/stats"
+  fi
+else
+  install_pkg chrony
+  SERVICES_ENABLE="$SERVICES_ENABLE chrony"
+fi
+##################################################################################################################
 printf_head "Fixing grub"
 ##################################################################################################################
 run_grub
@@ -757,6 +769,9 @@ if system_service_active named || port_in_use "53"; then
   devnull rm_if_exists /tmp/configs/var/named*
 else
   devnull rm_if_exists /etc/named* /var/named/*
+fi
+if [ -z "$(type -p ntpd)" ]; then
+  devnull rm_if_exists /etc/ntp*
 fi
 if [ -z "$(type -p chronyd)" ]; then
   devnull rm_if_exists /etc/chrony*
