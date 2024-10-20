@@ -855,11 +855,21 @@ system_service_exists "incus" && systemctl enable --now incus && incus admin ini
 printf_head "Creating containers"
 ##################################################################################################################
 if [ "$incus_setup_failed" != "yes" ]; then
-  incus create images:debian/12 debian
-  incus create images:almalinux/9 almalinux
-  incus config set debian security.nesting=true security.privileged=true
-  incus config set almalinux security.nesting=true security.privileged=true
-  incus start debian almalinux
+  printf_green "Craating container rhel9"
+  if devnull incus create images:almalinux/9 rhel9; then
+    devnull incus config set rhel9 security.nesting=true security.privileged=true
+    devnull incus snapshot create rhel9 default
+    if devnull incus start rhel9; then
+      printf_cyan "Created rhel9"
+    fi
+  fi
+  if devnull incus create images:debian/12 debian12; then
+    devnull incus config set debian12 security.nesting=true security.privileged=true
+    devnull incus snapshot create debian12 default
+    if devnull incus start debian12; then
+      printf_cyan "Created debian12"
+    fi
+  fi
 else
   printf_red "Initializing incus failed"
 fi
