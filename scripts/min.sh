@@ -841,6 +841,8 @@ system_service_exists "incus" && devnull systemctl enable --now incus || incus_s
 [ "$(ls -A /var/lib/incus/* 2>/dev/null | wc -l)" != "0" ] || { incus_setup_failed="yes" && incus_setup_message="incus seems to have already been initialized"; }
 if [ "$incus_setup_failed" = "no" ]; then
   if incus admin init --network-address 127.0.0.1 --network-port 60443 --storage-backend dir --quiet --auto; then
+    devnull incus network set incusbr0 ipv4.firewall false
+    devnull incus network set incusbr0 ipv6.firewall false
     devnull systemctl restart incus
     printf_blue "incus has been initialized"
     unset incus_setup_failed incus_setup_message
@@ -848,6 +850,19 @@ if [ "$incus_setup_failed" = "no" ]; then
     incus_setup_failed="yes"
   fi
 fi
+##################################################################################################################
+printf_head "Configuring the firewall"
+##################################################################################################################
+devnull systemctl start firewalld
+devnull firewall-cmd --permanent --zone=public --add-service=ssh
+devnull firewall-cmd --permanent --zone=public --add-service=http
+devnull firewall-cmd --permanent --zone=public --add-service=https
+devnull firewall-cmd --permanent --zone=public --remove-service=cockpit
+devnull firewall-cmd --permanent --zone=trusted --change-interface=docker0
+devnull firewall-cmd --permanent --zone=trusted --change-interface=incusbr0
+devnull firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 0 -p icmp -s 0.0.0.0/0 -d 0.0.0.0/0 -j ACCEPT
+devnull firewall-cmd --reload
+devnull systemctl stop firewalld
 ##################################################################################################################
 printf_head "Enabling services"
 ##################################################################################################################
@@ -888,12 +903,6 @@ if [ "$incus_setup_failed" != "yes" ]; then
 else
   printf_red "${incus_setup_message:-Initializing incus has failed}"
 fi
-##################################################################################################################
-printf_head "Configuring the firewall"
-##################################################################################################################
-devnull firewall-cmd --zone=trusted --change-interface=docker0 --permanent
-devnull firewall-cmd --zone=trusted --change-interface=incusbr0 --permanent
-devnull firewall-cmd --reload
 ##################################################################################################################
 printf_head "Configuring applications"
 ##################################################################################################################
