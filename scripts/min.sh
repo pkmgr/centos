@@ -482,8 +482,12 @@ printf_head "Configuring the kernel"
 ##################################################################################################################
 if [ "$DEFAULT_KERNEL" = "ml" ] || [ "$DEFAULT_KERNEL" = "kernel-ml" ]; then
   __kernel_ml
+  install_pkg kernel-ml-modules
+  install_pkg kernel-ml-modules-extra
 elif [ "$DEFAULT_KERNEL" = "lt" ] || [ "$DEFAULT_KERNEL" = "kernel-lt" ]; then
   __kernel_lt
+  install_pkg kernel-lt-modules
+  install_pkg kernel-lt-modules-extra
 else
   DEFAULT_KERNEL="kernel"
 fi
