@@ -819,6 +819,34 @@ if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
   echo "kernel.domainname=$set_domainname" >>/etc/sysctl.conf
 fi
 ##################################################################################################################
+printf_head "Installing incus"
+##################################################################################################################
+if ! grep -Rqsi 'copr.*incus' '/etc/yum.repos.d'; then
+  dnf -y install epel-release
+  dnf -y copr enable neil/incus
+  dnf -y config-manager --enable crb
+  crb enable
+fi
+yum install -yy incus incus-tools
+##################################################################################################################
+printf_head "Initializing incus"
+##################################################################################################################
+incus_setup_failed="no"
+[ -n "$(type -p setupmgr)" ] && setupmgr incus
+echo "0:1000000:1000000000" | tee /etc/subuid /etc/subgid >/dev/null
+[ "$(ls -A /var/lib/incus/* 2>/dev/null | wc -l)" != "0" ] || incus_setup_failed="yes"
+system_service_exists "incus" && devnull systemctl enable --now incus || incus_setup_failed="yes"
+if [ "$incus_setup_failed" = "no" ]; then
+  if incus admin init --network-address 127.0.0.1 --network-port 60443 --storage-backend dir --quiet --auto; then
+    printf_blue "incus has been initialized"
+    unset incus_setup_failed
+    devnull systemctl restart incus
+  else
+    incus_setup_failed="yes"
+    printf_red "incus initializing has failed"
+  fi
+fi
+##################################################################################################################
 printf_head "Enabling services"
 ##################################################################################################################
 for service_enable in $SERVICES_ENABLE; do
@@ -835,22 +863,6 @@ for service_disable in $SERVICES_DISABLE; do
     system_service_disable $service_disable
   fi
 done
-##################################################################################################################
-printf_head "Installing incus"
-##################################################################################################################
-if ! grep -Rqsi 'copr.*incus' '/etc/yum.repos.d'; then
-  dnf -y install epel-release
-  dnf -y copr enable neil/incus
-  dnf -y config-manager --enable crb
-  crb enable
-fi
-yum install -yy incus incus-tools
-##################################################################################################################
-printf_head "Initializing incus"
-##################################################################################################################
-echo "0:1000000:1000000000" | tee /etc/subuid /etc/subgid >/dev/null
-[ -n "$(type -p setupmgr)" ] && setupmgr incus
-system_service_exists "incus" && systemctl enable --now incus && incus admin init || incus_setup_failed="yes"
 ##################################################################################################################
 printf_head "Creating containers"
 ##################################################################################################################
