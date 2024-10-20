@@ -237,6 +237,8 @@ EOF
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 get_user_ssh_key() {
   local ssh_key=""
+  local col=${COLUMNS:-120}
+  local col=$(($col - 50))
   [ -n "$SSH_KEY_LOCATION" ] || return 0
   [ -d "$HOME/.ssh" ] || mkdir -p "$HOME/.ssh"
   chmod 700 "$HOME/.ssh"
@@ -244,10 +246,10 @@ get_user_ssh_key() {
   if [ -n "$get_keys" ]; then
     echo "$get_keys" | while read -r key; do
       if grep -qs "$key" "$HOME/.ssh/authorized_keys"; then
-        printf_cyan "${key:0:80} exists in ~/.ssh/authorized_keys"
+        printf_cyan "${key:0:$col} exists in ~/.ssh/authorized_keys"
       else
         echo "$key" | tee -a "/root/.ssh/authorized_keys" &>/dev/null
-        printf_green "Successfully added github ${key:0:80}"
+        printf_green "Successfully added github ${key:0:$col}"
       fi
     done
   else
