@@ -578,20 +578,22 @@ printf_head "Enabling ip forwarding"
 ##################################################################################################################
 for sysctlconf in /etc/sysctl.conf /etc/sysctl.d/*; do
   if grep -qsF 'net.ipv4.ip_forward' "$sysctlconf"; then
-    sed -i 's/net.ipv4.ip_forward.*/net.ipv4.ip_forward=1/g' "$sysctlconf"
+    devnull sed -i 's/net.ipv4.ip_forward.*/net.ipv4.ip_forward=1/g' "$sysctlconf"
   else
     sysctl_ip4_forward=0
   fi
   if grep -qsFR 'net.ipv6.conf.all.forwarding' "$sysctlconf"; then
-    sed -i 's/net.ipv6.conf.all.forwarding.*/net.ipv6.conf.all.forwarding=1/g' "$sysctlconf"
+    devnull sed -i 's/net.ipv6.conf.all.forwarding.*/net.ipv6.conf.all.forwarding=1/g' "$sysctlconf"
   else
     sysctl_ip6_forward=0
   fi
 done
 if [ "$sysctl_ip4_forward" = 0 ]; then
+  unset sysctl_ip4_forward
   echo "net.ipv4.ip_forward=1" >>'/etc/sysctl.conf'
 fi
 if [ "$sysctl_ip6_forward" = 0 ]; then
+  unset sysctl_ip6_forward
   echo "net.ipv6.conf.all.forwarding=1" >>'/etc/sysctl.conf'
 fi
 ##################################################################################################################
