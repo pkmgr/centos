@@ -937,10 +937,12 @@ fi
 printf_head "Setting up ssl certificates"
 ##################################################################################################################
 # If using letsencrypt certificates
+le_domain_list="apmpproject.org,casjay.cc,casjay.coffee,casjay.email,casjay.in,casjay.info,casjay.link,casjay.org,casjay.pro,"
+le_domain_list+="casjay.us,casjay.work,casjay.xyz,casjaydns.com,casjaydns.fyi,casjaysdev.pro,csj.lol,dockersrc.us,malaks.us,sqldb.us"
 le_primary_domain="$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null | grep '^' || echo "$HOSTNAME")"
-le_options="--primary $le_primary_domain"
+le_options="--primary $le_primary_domain "
 [ "$le_primary_domain" = "$le_primary_domain" ] || le_options="--primary $le_primary_domain --domains $HOSTNAME"
-[ -f "/etc/certbot/dns.conf" ] && chmod -f 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && run_post acme-cli $le_options
+[ -f "/etc/certbot/dns.conf" ] && chmod -f 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && run_post acme-cli $le_options --add $le_domain_list
 le_dir_not_empty="$(find /etc/letsencrypt/live/* -maxdepth 0 -type d | grep -vE 'domain|^$' | head -n1 | grep '^' || false)"
 [ -z "$le_dir_not_empty" ] && le_dir_not_empty="/etc/letsencrypt/live/$(__domainname)" || le_certs=yes
 [ -L "/etc/letsencrypt/live/domain" ] || { [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "/etc/letsencrypt/live/domain"; }
