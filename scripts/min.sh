@@ -41,17 +41,20 @@ if [ ! -d "/etc/casjaysdev" ]; then
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ -z "$(type -P ifconfig)" ] && [ -z "$(type -P hostname)" ]; then
+  echo "Installing net-tools package"
   yum install -yy net-tools -q
 fi
 for pkg in sudo git curl wget; do
-  command -v $pkg &>/dev/null || { printf '%b\n' "${CYAN}Installing $pkg${NC}" && yum install -yy -q $pkg &>/dev/null || exit 1; } || { echo "Failed to install $pkg" && exit 1; }
+  command -v $pkg &>/dev/null || { echo "Installing $pkg" && yum install -yy -q $pkg &>/dev/null || exit 1; } || { echo "Failed to install $pkg" && exit 1; }
 done
+unset pkg
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 read -t 30 -p "Enter your full hostname: (default: $HOSTNAME) " set_hostname
 set_hostname="${set_hostname:=$HOSTNAME}"
 if [ -n "$set_hostname" ]; then
   hostnamectl set-hostname $set_hostname && echo "$set_hostname" >/etc/hostname || false
   [ $? -eq 0 ] && [ -n "$(type -P hostname)" ] && hostname -F /etc/hostname
+  unset set_hostname
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ -n "$(type systemd-ask-password)" ]; then
@@ -65,7 +68,7 @@ else
   printf '\n'
   stty echo
 fi
-if [ -n "$root_pass_1" ] && [ -n "$root_pass_2" ]; then
+if [ -n "$root_pass_1" ]; then
   if [ "$root_pass_1" = "$root_pass_2" ]; then
     echo "$root_pass_1" | passwd --stdin root >/dev/null
   fi
