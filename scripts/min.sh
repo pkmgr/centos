@@ -840,7 +840,7 @@ incus_setup_message="Initializing incus has failed"
 [ -n "$(type -p setupmgr)" ] && setupmgr incus
 echo "0:1000000:1000000000" | tee /etc/subuid /etc/subgid >/dev/null
 system_service_exists "incus" && devnull systemctl enable --now incus || incus_setup_failed="yes"
-[ "$(ls -A /var/lib/incus/* 2>/dev/null | wc -l)" != "0" ] || { incus_setup_failed="yes" && incus_setup_message="incus seems to have already been initialized"; }
+[ "$(ls -A /var/lib/incus/* 2>/dev/null | wc -l)" != "0" ] && incus_setup_message="incus seems to be initialized" || { incus_setup_failed="yes" && incus_setup_message="incus seems to have already been initialized"; }
 if [ "$incus_setup_failed" = "no" ]; then
   if incus admin init --network-address 127.0.0.1 --network-port 60443 --storage-backend dir --quiet --auto; then
     devnull incus network set incusbr0 ipv4.firewall false
