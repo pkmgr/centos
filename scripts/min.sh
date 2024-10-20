@@ -822,12 +822,14 @@ fi
 printf_head "Installing incus"
 ##################################################################################################################
 if ! grep -Rqsi 'copr.*incus' '/etc/yum.repos.d'; then
-  dnf -y install epel-release
-  dnf -y copr enable neil/incus
-  dnf -y config-manager --enable crb
-  crb enable
+  devnull dnf -y install epel-release
+  devnull dnf -y copr enable neil/incus
+  devnull dnf -y config-manager --enable crb
+  devnull crb enable
+  __yum makecache
 fi
-yum install -yy incus incus-tools
+install_pkg incus
+install_pkg incus-tools
 ##################################################################################################################
 printf_head "Initializing incus"
 ##################################################################################################################
