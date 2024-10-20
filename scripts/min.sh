@@ -246,7 +246,7 @@ get_user_ssh_key() {
       if grep -qs "$key" "$HOME/.ssh/authorized_keys"; then
         printf_cyan "${key:0:80} exists in ~/.ssh/authorized_keys"
       else
-        echo "$ssh_key" | tee -a "/root/.ssh/authorized_keys" &>/dev/null
+        echo "$key" | tee -a "/root/.ssh/authorized_keys" &>/dev/null
         printf_green "Successfully added github ${key:0:80}"
       fi
     done
@@ -348,7 +348,6 @@ retrieve_repo_file() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
-  echo "Initializing grub configuration"
   local cfg="" efi="" grub_cfg="" grub_efi="" grub_bin="" grub_bin_name=""
   grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' | grep '^' || false)"
   grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' | grep '^' || false)"
