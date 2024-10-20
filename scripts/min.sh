@@ -123,7 +123,7 @@ fi
 SCRIPT_OS="AlmaLinux"
 SCRIPT_DESCRIBE="Minimal"
 GITHUB_USER="${GITHUB_USER:-casjay}"
-DFMGR_CONFIGS="misc git tmux"
+DFMGR_CONFIGS="misc vim bash git tmux"
 SYSTEMMGR_CONFIGS="cron ssh ssl"
 SET_HOSTNAME="$([ -n "$(command -v hostname)" ] && hostname -s 2>/dev/null | grep '^' || echo "${HOSTNAME//.*/}")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -756,7 +756,7 @@ run_post "systemmgr install $SYSTEMMGR_CONFIGS"
 ##################################################################################################################
 printf_head "Installing custom dotfiles"
 ##################################################################################################################
-run_post "dfmgr install $DFMGR_CONFIGS"
+run_post "dfmgr update $DFMGR_CONFIGS"
 ##################################################################################################################
 printf_head "Installing custom web server files"
 ##################################################################################################################
