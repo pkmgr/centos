@@ -832,18 +832,18 @@ yum install -yy incus incus-tools
 printf_head "Initializing incus"
 ##################################################################################################################
 incus_setup_failed="no"
+incus_setup_message="Initializing incus has failed"
 [ -n "$(type -p setupmgr)" ] && setupmgr incus
 echo "0:1000000:1000000000" | tee /etc/subuid /etc/subgid >/dev/null
-[ "$(ls -A /var/lib/incus/* 2>/dev/null | wc -l)" != "0" ] || incus_setup_failed="yes"
 system_service_exists "incus" && devnull systemctl enable --now incus || incus_setup_failed="yes"
+[ "$(ls -A /var/lib/incus/* 2>/dev/null | wc -l)" != "0" ] || { incus_setup_failed="yes" && incus_setup_message="incus seems to have already been initialized"; }
 if [ "$incus_setup_failed" = "no" ]; then
   if incus admin init --network-address 127.0.0.1 --network-port 60443 --storage-backend dir --quiet --auto; then
-    printf_blue "incus has been initialized"
-    unset incus_setup_failed
     devnull systemctl restart incus
+    printf_blue "incus has been initialized"
+    unset incus_setup_failed incus_setup_message
   else
     incus_setup_failed="yes"
-    printf_red "incus initializing has failed"
   fi
 fi
 ##################################################################################################################
@@ -867,7 +867,7 @@ done
 printf_head "Creating containers"
 ##################################################################################################################
 if [ "$incus_setup_failed" != "yes" ]; then
-  printf_green "Craating container rhel9"
+  printf_green "Creating container rhel9"
   if devnull incus create images:almalinux/9 rhel9; then
     devnull incus config set rhel9 security.nesting=true security.privileged=true
     devnull incus snapshot create rhel9 default
@@ -875,6 +875,7 @@ if [ "$incus_setup_failed" != "yes" ]; then
       printf_cyan "Created rhel9"
     fi
   fi
+  printf_green "Creating container debian12"
   if devnull incus create images:debian/12 debian12; then
     devnull incus config set debian12 security.nesting=true security.privileged=true
     devnull incus snapshot create debian12 default
@@ -883,7 +884,7 @@ if [ "$incus_setup_failed" != "yes" ]; then
     fi
   fi
 else
-  printf_red "Initializing incus failed"
+  printf_red "${incus_setup_message:-Initializing incus has failed}"
 fi
 ##################################################################################################################
 printf_head "Configuring the firewall"
