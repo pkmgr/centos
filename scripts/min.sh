@@ -351,18 +351,20 @@ retrieve_repo_file() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
   local cfg="" efi="" grub_cfg="" grub_efi="" grub_bin="" grub_bin_name=""
-  grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' | grep '^' || false)"
-  grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' | grep '^' || false)"
+  grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' 2>/dev/null | grep '^' || false)"
+  grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' 2>/dev/null | grep '^' || false)"
   grub_bin="$(builtin type -P grub-mkconfig 2>/dev/null || builtin type -P grub2-mkconfig 2>/dev/null || false)"
-  grub_bin_name="$(basename "$grub_bin" 2>/dev/null)"
+  grub_bin_name="$(basename "$grub_bin" 2>/dev/null || false)"
   if [ -n "$grub_bin" ]; then
-    for opt in 'biosdevname' 'net.ifnames'; do
-      if ! grep -shq "$opt" '/etc/default/grub'; then
-        sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ '$opt'=0"/' /etc/default/grub
+    if [ -f "/etc/default/grub" ]; then
+      for opt in 'biosdevname' 'net.ifnames'; do
+        if ! grep -shq "$opt" '/etc/default/grub'; then
+          devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ '$opt'=0"/' /etc/default/grub
+        fi
+      done
+      if ! stat -fc %T '/sys/fs/cgroup' | grep -q 'cgroup2fs' && ! grep -shq 'systemd.unified_cgroup_hierarchy' /etc/default/grub; then
+        devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ systemd.unified_cgroup_hierarchy=1"/' /etc/default/grub
       fi
-    done
-    if ! stat -fc %T '/sys/fs/cgroup' | grep -q 'cgroup2fs' && ! grep -shq 'systemd.unified_cgroup_hierarchy' /etc/default/grub; then
-      sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ systemd.unified_cgroup_hierarchy=1"/' /etc/default/grub
     fi
     rm_if_exists /boot/*rescue*
     if [ -n "$grub_cfg" ]; then
