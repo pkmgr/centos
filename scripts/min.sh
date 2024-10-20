@@ -387,9 +387,10 @@ run_grub() {
 run_post() {
   local e="$*"
   local m="${e//devnull /}"
-  execute "$e" "executing: $m"
+  execute "$e" "${run_post_message:-executing: $m}"
   setexitstatus
   set --
+  unset run_post_message
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __kernel_ml() {
@@ -762,9 +763,9 @@ printf_head "Installing custom web server files"
 ##################################################################################################################
 [ -d "/tmp/configs" ] && devnull rm_if_exists "/tmp/configs"
 devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
-devnull git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
-devnull git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
-sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs "https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh")"
+run_post git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
+run_post git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
+run_post_message="Installing default server files" run_post sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs "https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh")"
 [ -f "/etc/httpd/modules/mod_wsgi_python3.so" ] && ln -sf /etc/httpd/modules/mod_wsgi_python3.so /etc/httpd/modules/mod_wsgi.so
 ##################################################################################################################
 printf_head "Deleting files"
@@ -931,7 +932,7 @@ printf_head "Setting up ssl certificates"
 le_primary_domain="$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null | grep '^' || echo "$HOSTNAME")"
 le_options="--primary $le_primary_domain"
 [ "$le_primary_domain" = "$le_primary_domain" ] || le_options="--primary $le_primary_domain --domains $HOSTNAME"
-[ -f "/etc/certbot/dns.conf" ] && chmod -f 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && acme-cli $le_options
+[ -f "/etc/certbot/dns.conf" ] && chmod -f 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && run_post acme-cli $le_options
 le_dir_not_empty="$(find /etc/letsencrypt/live/* -maxdepth 0 -type d | grep -vE 'domain|^$' | head -n1 | grep '^' || false)"
 [ -z "$le_dir_not_empty" ] && le_dir_not_empty="/etc/letsencrypt/live/$(__domainname)" || le_certs=yes
 [ -L "/etc/letsencrypt/live/domain" ] || { [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "/etc/letsencrypt/live/domain"; }
@@ -988,7 +989,7 @@ fi
 ##################################################################################################################
 printf_head "Setting up docker"
 ##################################################################################################################
-[ -n "$(type -P dockermgr 2>/dev/null)" ] && dockermgr init
+[ -n "$(type -P dockermgr 2>/dev/null)" ] && run_post dockermgr init
 ##################################################################################################################
 printf_head "Setting up bind dns [named]"
 ##################################################################################################################
