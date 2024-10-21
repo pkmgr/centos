@@ -937,7 +937,7 @@ fi
 printf_head "Setting up ssl certificates"
 ##################################################################################################################
 # If using letsencrypt certificates
-le_domain_list="apmpproject.org,casjay.cc,casjay.coffee,casjay.email,casjay.in,casjay.info,casjay.link,casjay.org,casjay.pro,"
+le_domain_list="apmpproject.org,casjay.cc,casjay.coffee,casjay.email,casjay.info,casjay.link,casjay.org,casjay.pro,"
 le_domain_list+="casjay.us,casjay.work,casjay.xyz,casjaydns.com,casjaydns.fyi,casjaysdev.pro,csj.lol,dockersrc.us,malaks.us,sqldb.us"
 le_primary_domain="$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null | grep '^' || echo "$HOSTNAME")"
 le_options="--primary $le_primary_domain "
