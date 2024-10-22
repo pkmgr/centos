@@ -146,6 +146,8 @@ if echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^pbx'; then
   SYSTEM_TYPE="pbx"
 elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^dns'; then
   SYSTEM_TYPE="dns"
+elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^vpn'; then
+  SYSTEM_TYPE="vpn"
 elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^mail'; then
   SYSTEM_TYPE="mail"
 elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^server'; then
@@ -1061,6 +1063,10 @@ if [ -z "$(command -v named)" ]; then
   devnull rm_if_exists /etc/logrotate.d/named
 fi
 ##################################################################################################################
+if [ "$SYSTEM_TYPE" = "vpn" ]; then
+  system_service_disable httpd
+  system_service_disable nginx
+fi
 if [ "$SYSTEM_TYPE" = "mail" ]; then
   printf_head "Running installer script for email server"
   [ -f "$HOME/Projects/github/dfprivate/email/install.sh" ] && eval "$HOME/Projects/github/dfprivate/email/install.sh" >/dev/null 2>&1
