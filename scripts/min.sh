@@ -1084,7 +1084,9 @@ if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
   if [ -d "/var/www/nginx/domains/$HOSTNAME" ]; then
     printf_blue "Server directory already exists"
   else
-    if gen-nginx php $HOSTNAME >/dev/null 2>&1; then
+    devnull gen-nginx --config
+    devnull gen-nginx php $HOSTNAME
+    if [ -d "/var/www/nginx/domains/$HOSTNAME" ]; then
       printf_green "Created server in /var/www/nginx/domains/$HOSTNAME"
     else
       printf_red "Failed to create default server"
