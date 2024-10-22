@@ -380,9 +380,9 @@ run_grub() {
     else
       echo "GRUB_ENABLE_BLSCFG=false" >>'/etc/default/grub'
     fi
-    if grep -sq 'crashkernel=' '/etc/default/grub'; then
-      sed -i '/^GRUB_CMDLINE_LINUX=/s/crashkernel=.*[KMG][, ]//' '/etc/default/grub'
-    fi
+    # if grep -sq 'crashkernel=' '/etc/default/grub'; then
+    #   sed -i '/^GRUB_CMDLINE_LINUX=/s/crashkernel=.*[KMG][, ]//' '/etc/default/grub'
+    # fi
     rm_if_exists /boot/*rescue*
     rm_if_exists /boot/loader/entries/*
     if [ -n "$grub_cfg" ]; then
@@ -950,7 +950,7 @@ printf_head "Creating containers"
 ##################################################################################################################
 if [ "$incus_setup_failed" != "yes" ]; then
   printf_green "Creating container rhel9"
-  if devnull incus create images:almalinux/9 rhel9; then
+  if run_post devnull incus create images:almalinux/9 rhel9; then
     devnull incus config set rhel9 security.nesting=true security.privileged=true
     devnull incus snapshot create rhel9 default
     if devnull incus start rhel9; then
@@ -958,7 +958,7 @@ if [ "$incus_setup_failed" != "yes" ]; then
     fi
   fi
   printf_green "Creating container debian12"
-  if devnull incus create images:debian/12 debian12; then
+  if run_post devnull incus create images:debian/12 debian12; then
     devnull incus config set debian12 security.nesting=true security.privileged=true
     devnull incus snapshot create debian12 default
     if devnull incus start debian12; then
@@ -988,7 +988,7 @@ fi
 printf_head "Setting up ssl certificates"
 ##################################################################################################################
 # If using letsencrypt certificates
-le_domain_list="apmpproject.org,casjay.cc,casjay.coffee,casjay.email,casjay.in,casjay.info,casjay.link,casjay.org,casjay.pro,"
+le_domain_list="apmpproject.org,casjay.cc,casjay.coffee,casjay.email,casjay.info,casjay.link,casjay.org,casjay.pro,"
 le_domain_list+="casjay.us,casjay.work,casjay.xyz,casjaydns.com,casjaydns.fyi,casjaysdev.pro,csj.lol,dockersrc.us,malaks.us,sqldb.us"
 le_primary_domain="$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null | grep '^' || echo "$HOSTNAME")"
 le_options="--primary $le_primary_domain "
