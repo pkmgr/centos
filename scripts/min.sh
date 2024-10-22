@@ -252,10 +252,10 @@ get_user_ssh_key() {
     echo "$get_keys" | while read -r key; do
       key_value="$(echo "$key" | awk -F ' ' '{print $2}')"
       if grep -qs "$key" "$HOME/.ssh/authorized_keys"; then
-        printf_cyan "${key_value:0:$col} exists in ~/.ssh/authorized_keys"
+        printf_cyan "Key exists in ~/.ssh/authorized_keys: ${key_value:0:$col}"
       else
         echo "$key" | tee -a "/root/.ssh/authorized_keys" &>/dev/null
-        printf_green "Successfully added github ${key_value:0:$col}"
+        printf_green "Successfully added key: ${key_value:0:$col}"
       fi
     done
   else
