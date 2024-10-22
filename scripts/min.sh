@@ -866,7 +866,7 @@ devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_4#$mycurren
 [ -n "$does_lo_have_ipv6" ] || sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' /tmp/configs/etc/postfix/main.cf
 devnull rm_if_exists /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
 devnull mkdir -p /etc/rsync.d /var/log/named
-devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
+devnull rsync -avhP /tmp/configs/{etc,root,usr,var}* /
 devnull sed -i "s#myserverdomainname#$HOSTNAME#g" /etc/sysconfig/network
 devnull sed -i "s#mydomain#$set_domainname#g" /etc/sysconfig/network
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
@@ -878,14 +878,27 @@ fi
 if [ -z "$IS_INSTALLED_BIND" ]; then
   does_user_exist 'named' && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
 fi
-if [ -n "$(type -P postfix)" ]; then
+if [ -z "$(type -P postfix)" ]; then
+  rm_if_exists /etc/postfix
+else
+  for postfix_proto in "/etc/postfix"/*.proto; do
+    devnull rm_if_exists $postfix_proto
+  done
+  devnull chgrp postdrop /usr/sbin/postqueue
+  devnull chgrp postdrop /usr/sbin/postdrop
+  devnull chmod g+s /usr/sbin/postqueue
+  devnull chmod g+s /usr/sbin/postdrop
+  devnull killall -9 postdrop
   devnull chown -R postfix.postfix /var/spool/postfix*
+  devnull postfix set-permissions create-missing
+  unset postfix_proto
+  devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
+  devnull newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 fi
-devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
-devnull newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
   echo "kernel.domainname=$set_domainname" >>/etc/sysctl.conf
 fi
+devnull systemctl daemon-reload
 ##################################################################################################################
 printf_head "Installing incus"
 ##################################################################################################################
