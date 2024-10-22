@@ -878,6 +878,9 @@ fi
 if [ -z "$IS_INSTALLED_BIND" ]; then
   does_user_exist 'named' && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
 fi
+if [ -n "$(type -P postfix)" ]; then
+  devnull chown -R postfix.postfix /var/spool/postfix*
+fi
 devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
 devnull newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
