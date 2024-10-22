@@ -366,7 +366,7 @@ run_grub() {
     if [ -f "/etc/default/grub" ]; then
       for opt in 'biosdevname' 'net.ifnames'; do
         if grep -shq "$opt" '/etc/default/grub'; then
-          devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/'$opt'=[01]/'$opt'=0"/' /etc/default/grub
+          devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/'$opt'=[01]/'$opt'=0/' /etc/default/grub
         else
           devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ '$opt'=0"/' /etc/default/grub
         fi
