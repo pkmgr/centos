@@ -142,17 +142,17 @@ BACKUP_DIR="$HOME/Documents/backups/$(date +'%Y/%m/%d')"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SSH_KEY_LOCATION="${SSH_KEY_LOCATION:-https://github.com/$GITHUB_USER.keys}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if echo "$SET_HOSTNAME" | grep -qE '^dns'; then
-  SYSTEM_TYPE="dns"
-elif echo "$SET_HOSTNAME" | grep -qE '^pbx'; then
+if echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^pbx'; then
   SYSTEM_TYPE="pbx"
-elif echo "$SET_HOSTNAME" | grep -qE '^mail'; then
+elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^dns'; then
+  SYSTEM_TYPE="dns"
+elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^mail'; then
   SYSTEM_TYPE="mail"
-elif echo "$SET_HOSTNAME" | grep -qE '^server'; then
+elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^server'; then
   SYSTEM_TYPE="server"
-elif echo "$SET_HOSTNAME" | grep -qE '^sql|^db'; then
+elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^sql|^db'; then
   SYSTEM_TYPE="sql"
-elif echo "$SET_HOSTNAME" | grep -qE '^devel|^build'; then
+elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^devel|^build|^ci|^testing'; then
   SYSTEM_TYPE="devel"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -241,18 +241,19 @@ EOF
 get_user_ssh_key() {
   local ssh_key=""
   local col=${COLUMNS:-120}
-  local col=$(($col - 50))
+  local col=$(($col - 40))
   [ -n "$SSH_KEY_LOCATION" ] || return 0
   [ -d "$HOME/.ssh" ] || mkdir -p "$HOME/.ssh"
   chmod 700 "$HOME/.ssh"
   get_keys="$(curl -q -LSsf "$SSH_KEY_LOCATION" 2>/dev/null | grep '^' || false)"
   if [ -n "$get_keys" ]; then
     echo "$get_keys" | while read -r key; do
+      key_value="$(echo "$key" | awk -F ' ' '{print $2}')"
       if grep -qs "$key" "$HOME/.ssh/authorized_keys"; then
-        printf_cyan "${key:0:$col} exists in ~/.ssh/authorized_keys"
+        printf_cyan "${key_value:0:$col} exists in ~/.ssh/authorized_keys"
       else
         echo "$key" | tee -a "/root/.ssh/authorized_keys" &>/dev/null
-        printf_green "Successfully added github ${key:0:$col}"
+        printf_green "Successfully added github ${key_value:0:$col}"
       fi
     done
   else
@@ -266,6 +267,7 @@ run_init_check() {
   if [ -d "/usr/local/share/CasjaysDev/scripts/.git" ]; then
     git -C /usr/local/share/CasjaysDev/scripts pull -q
     if [ $? -ne 0 ]; then
+      rm -Rf "/usr/local/share/CasjaysDev/scripts"
       git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts -q
     fi
   fi
@@ -361,15 +363,26 @@ run_grub() {
   if [ -n "$grub_bin" ]; then
     if [ -f "/etc/default/grub" ]; then
       for opt in 'biosdevname' 'net.ifnames'; do
-        if ! grep -shq "$opt" '/etc/default/grub'; then
+        if grep -shq "$opt" '/etc/default/grub'; then
+          devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/'$opt'=[01]/'$opt'=0"/' /etc/default/grub
+        else
           devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ '$opt'=0"/' /etc/default/grub
         fi
       done
-      if ! stat -fc %T '/sys/fs/cgroup' | grep -q 'cgroup2fs' && ! grep -shq 'systemd.unified_cgroup_hierarchy' /etc/default/grub; then
+      if ! stat -fc %T '/sys/fs/cgroup' | grep -q 'cgroup2fs' && ! grep -sq 'systemd.unified_cgroup_hierarchy' /etc/default/grub; then
         devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ systemd.unified_cgroup_hierarchy=1"/' /etc/default/grub
       fi
     fi
+    if grep -sq 'GRUB_ENABLE_BLSCFG' "/etc/default/grub"; then
+      sed -i 's|GRUB_ENABLE_BLSCFG=.*|GRUB_ENABLE_BLSCFG=false|g' '/etc/default/grub'
+    else
+      echo "GRUB_ENABLE_BLSCFG=false" >>'/etc/default/grub'
+    fi
+    if grep -sq 'crashkernel=' '/etc/default/grub'; then
+      sed -i '/^GRUB_CMDLINE_LINUX=/s/crashkernel=.*[KMG][, ]//' '/etc/default/grub'
+    fi
     rm_if_exists /boot/*rescue*
+    rm_if_exists /boot/loader/entries/*
     if [ -n "$grub_cfg" ]; then
       for cfg in $grub_cfg; do
         if [ -e "$cfg" ]; then
@@ -457,10 +470,17 @@ elif [ -f "/etc/casjaysdev/updates/versions/installed.txt" ]; then
   exit 1
 else
   run_init_check
-  retrieve_repo_file || printf_exit "The script has failed to initialize"
-  [ -f "/etc/casjaysdev/updates/versions/os_version.txt" ] || echo "$RELEASE_VER" >"/etc/casjaysdev/updates/versions/os_version.txt"
+  if ! retrieve_repo_file; then
+    devnull rm_if_exists "/etc/casjaysdev/updates/versions/installed.txt"
+    devnull rm_if_exists "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
+    printf_red "The script has failed to initialize"
+    exit 2
+  fi
+  if [ ! -f "/etc/casjaysdev/updates/versions/os_version.txt" ]; then
+    echo "$RELEASE_VER" >"/etc/casjaysdev/updates/versions/os_version.txt"
+  fi
 fi
-if ! builtin type -P systemmgr &>/dev/null; then
+if [ -n "$(type -P systemmgr)" ]; then
   run_external /usr/local/share/CasjaysDev/scripts/install.sh
   run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr --config
   run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr update scripts
@@ -784,19 +804,44 @@ if system_service_active named || port_in_use "53"; then
 else
   devnull rm_if_exists /etc/named* /var/named/*
 fi
-if [ -z "$(type -p ntpd)" ]; then
+if [ -z "$(type -p ntp || type -p ntpd || type -p ntpq)" ]; then
+  IS_INSTALLED_NTP=no
   devnull rm_if_exists /etc/ntp*
+  devnull rm_if_exists /tmp/configs/etc/ntp*
 fi
 if [ -z "$(type -p chronyd)" ]; then
+  IS_INSTALLED_CHRONY=no
   devnull rm_if_exists /etc/chrony*
+  devnull rm_if_exists /tmp/configs/etc/chrony*
+fi
+if [ -z "$(type -P httpd)" ]; then
+  IS_INSTALLED_HTTPD=no
+  devnull rm_if_exists /etc/httpd*
+  devnull rm_if_exists /tmp/configs/etc/httpd*
+fi
+if [ -z "$(type -P nginx)" ]; then
+  IS_INSTALLED_NGINX=no
+  devnull rm_if_exists /etc/nginx*
+  devnull rm_if_exists /tmp/configs/etc/nginx*
+fi
+if [ -z "$(type -P named)" ]; then
+  IS_INSTALLED_BIND=no
+  devnull rm_if_exists /etc/named*
+  devnull rm_if_exists /var/named*
+  devnull rm_if_exists /tmp/configs/etc/named*
+  devnull rm_if_exists /tmp/configs/var/named*
+fi
+if [ -z "$(type -P proftpd)" ]; then
+  IS_INSTALLED_PROFTPD=no
+  devnull rm_if_exists /etc/proftpd*
+  devnull rm_if_exists /tmp/configs/etc/proftpd*
 fi
 if [ -f "/etc/certbot/dns.conf" ]; then
   devnull rm_if_exists "/tmp/configs/etc/certbot/dns.conf"
 fi
-if [ -z "$(type -p ntp)" ]; then
-  devnull rm_if_exists /etc/ntp*
-fi
-devnull rm_if_exists /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf
+for rm_file in /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf; do
+  run_post devnull rm_if_exists "$rm_file"
+done
 ##################################################################################################################
 printf_head "setting up config files"
 ##################################################################################################################
@@ -825,8 +870,12 @@ devnull sed -i "s#mydomain#$set_domainname#g" /etc/sysconfig/network
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
-does_user_exist 'apache' && devnull chown -Rf apache:apache "/var/www" "/usr/share/httpd"
-does_user_exist 'named' && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
+if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
+  does_user_exist 'apache' && devnull chown -Rf apache:apache "/var/www" "/usr/share/httpd"
+fi
+if [ -z "$IS_INSTALLED_BIND" ]; then
+  does_user_exist 'named' && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
+fi
 devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
 devnull newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
@@ -926,9 +975,9 @@ printf_head "Configuring cloudflare dns for $SET_HOSTNAME"
 ##################################################################################################################
 if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
   if [ -n "$(type -P "cloudflare")" ] && [ -n "" ]; then
-    if devnull cloudflare update $SET_HOSTNAME; then
+    if devnull cloudflare update $SET_HOSTNAME --proxy false; then
       printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
-    elif devnull cloudflare create $SET_HOSTNAME; then
+    elif devnull cloudflare create $SET_HOSTNAME --proxy false; then
       printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
     fi
   fi
@@ -937,7 +986,7 @@ fi
 printf_head "Setting up ssl certificates"
 ##################################################################################################################
 # If using letsencrypt certificates
-le_domain_list="apmpproject.org,casjay.cc,casjay.coffee,casjay.email,casjay.info,casjay.link,casjay.org,casjay.pro,"
+le_domain_list="apmpproject.org,casjay.cc,casjay.coffee,casjay.email,casjay.in,casjay.info,casjay.link,casjay.org,casjay.pro,"
 le_domain_list+="casjay.us,casjay.work,casjay.xyz,casjaydns.com,casjaydns.fyi,casjaysdev.pro,csj.lol,dockersrc.us,malaks.us,sqldb.us"
 le_primary_domain="$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null | grep '^' || echo "$HOSTNAME")"
 le_options="--primary $le_primary_domain "
@@ -999,7 +1048,9 @@ fi
 ##################################################################################################################
 printf_head "Setting up docker"
 ##################################################################################################################
-[ -n "$(type -P dockermgr 2>/dev/null)" ] && run_post dockermgr init
+if [ -n "$(type -P dockermgr 2>/dev/null)" ]; then
+  run_post dockermgr init
+fi
 ##################################################################################################################
 printf_head "Setting up bind dns [named]"
 ##################################################################################################################
@@ -1023,13 +1074,15 @@ fi
 ##################################################################################################################
 printf_head "Generating default webserver for $HOSTNAME"
 ##################################################################################################################
-if [ -d "/var/www/nginx/domains/$HOSTNAME" ]; then
-  printf_blue "Server directory already exists"
-else
-  if gen-nginx php $HOSTNAME >/dev/null 2>&1; then
-    printf_green "Created server in /var/www/nginx/domains/$HOSTNAME"
+if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
+  if [ -d "/var/www/nginx/domains/$HOSTNAME" ]; then
+    printf_blue "Server directory already exists"
   else
-    printf_red "Failed to create default server"
+    if gen-nginx php $HOSTNAME >/dev/null 2>&1; then
+      printf_green "Created server in /var/www/nginx/domains/$HOSTNAME"
+    else
+      printf_red "Failed to create default server"
+    fi
   fi
 fi
 ##################################################################################################################
