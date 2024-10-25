@@ -903,7 +903,7 @@ run_post "dfmgr update $DFMGR_CONFIGS"
 printf_head "Updating personal dotfiles"
 ##################################################################################################################
 if [ -x "$HOME/.local/dotfiles/personal/install.sh" ]; then
-  bash "$HOME/.local/dotfiles/personal/install.sh"
+  run_external bash "$HOME/.local/dotfiles/personal/install.sh"
 fi
 [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
 [ -f "$HOME/.profile" ] && . "$HOME/.profile"
