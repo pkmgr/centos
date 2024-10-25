@@ -989,8 +989,8 @@ if [ "$incus_setup_failed" != "yes" ]; then
       printf_cyan "Created debian"
     fi
   fi
-  printf_green "Creating container ubuntu using the image: ubuntu/22"
-  if run_post devnull incus create images:ubuntu/22 ubuntu; then
+  printf_green "Creating container ubuntu using the image: ubuntu/jammy"
+  if run_post devnull incus create images:ubuntu/jammy ubuntu; then
     devnull incus config set ubuntu security.nesting=true security.privileged=true
     run_post devnull incus snapshot create ubuntu default
     if devnull incus start ubuntu; then
