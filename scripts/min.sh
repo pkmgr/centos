@@ -900,6 +900,14 @@ if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
 fi
 devnull systemctl daemon-reload
 ##################################################################################################################
+printf_head "Updating personal dotfiles"
+##################################################################################################################
+if [ -x "$HOME/.local/dotfiles/personal/install.sh" ]; then
+  bash "$HOME/.local/dotfiles/personal/install.sh"
+  . "$HOME/.bashrc"
+  . "$HOME/.profile"
+fi
+##################################################################################################################
 printf_head "Installing incus"
 ##################################################################################################################
 if ! grep -Rqsi 'copr.*incus' '/etc/yum.repos.d'; then
