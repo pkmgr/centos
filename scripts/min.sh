@@ -973,20 +973,28 @@ done
 printf_head "Creating containers"
 ##################################################################################################################
 if [ "$incus_setup_failed" != "yes" ]; then
-  printf_green "Creating container rhel9"
-  if run_post devnull incus create images:almalinux/9 rhel9; then
-    devnull incus config set rhel9 security.nesting=true security.privileged=true
-    devnull incus snapshot create rhel9 default
-    if devnull incus start rhel9; then
-      printf_cyan "Created rhel9"
+  printf_green "Creating container rhel using the image: almalinux/9"
+  if run_post devnull incus create images:almalinux/9 almalinux; then
+    devnull incus config set almalinux security.nesting=true security.privileged=true
+    run_post devnull incus snapshot create almalinux default
+    if devnull incus start almalinux; then
+      printf_cyan "Created almalinux"
     fi
   fi
-  printf_green "Creating container debian12"
-  if run_post devnull incus create images:debian/12 debian12; then
-    devnull incus config set debian12 security.nesting=true security.privileged=true
-    devnull incus snapshot create debian12 default
-    if devnull incus start debian12; then
-      printf_cyan "Created debian12"
+  printf_green "Creating container debian using the image: debian/12"
+  if run_post devnull incus create images:debian/12 debian; then
+    devnull incus config set debian security.nesting=true security.privileged=true
+    run_post devnull incus snapshot create debian default
+    if devnull incus start debian; then
+      printf_cyan "Created debian"
+    fi
+  fi
+  printf_green "Creating container ubuntu using the image: ubuntu/22"
+  if run_post devnull incus create images:ubuntu/22 ubuntu; then
+    devnull incus config set ubuntu security.nesting=true security.privileged=true
+    run_post devnull incus snapshot create ubuntu default
+    if devnull incus start ubuntu; then
+      printf_cyan "Created ubuntu"
     fi
   fi
 else
