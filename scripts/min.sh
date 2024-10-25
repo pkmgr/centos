@@ -1016,6 +1016,7 @@ le_domain_list="apmpproject.org,casjay.app,casjay.cc,casjay.coffee,casjay.dev,ca
 le_domain_list+="casjay.pro,casjay.us,casjay.work,casjay.xyz,casjaydns.com,casjaydns.fyi,casjaysdev.pro,csj.lol,dockersrc.us,malaks.us,onhealth.xyz,sqldb.us"
 le_primary_domain="$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null | grep '^' || echo "$HOSTNAME")"
 le_options="--primary $le_primary_domain "
+run_post_message="Attempting to get certificates from letsencrypt for $le_primary_domain and all domains in var: le_domain_list"
 [ "$le_primary_domain" = "$le_primary_domain" ] || le_options="--primary $le_primary_domain --domains $HOSTNAME"
 [ -f "/etc/certbot/dns.conf" ] && chmod -f 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && run_post acme-cli $le_options --add $le_domain_list
 le_dir_not_empty="$(find /etc/letsencrypt/live/* -maxdepth 0 -type d | grep -vE 'domain|^$' | head -n1 | grep '^' || false)"
