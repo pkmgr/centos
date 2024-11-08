@@ -1108,6 +1108,12 @@ if [ -n "$(type -P composemgr 2>/dev/null)" ]; then
   run_post composemgr --config
 fi
 ##################################################################################################################
+printf_head "Disabling dnsmasq"
+##################################################################################################################
+system_service_disable dnsmasq
+devnull sed -i 's/^dns=dnsmasq/#&/' /etc/NetworkManager/NetworkManager.conf
+devnull killall dnsmasq
+##################################################################################################################
 printf_head "Setting up bind dns [named]"
 ##################################################################################################################
 if [ -z "$(command -v named)" ]; then
