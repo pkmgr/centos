@@ -1026,31 +1026,36 @@ le_primary_domain="$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/nu
 le_options="--primary $le_primary_domain "
 run_post_message="Attempting to get certificates from letsencrypt for $le_primary_domain and all domains in var: le_domain_list"
 [ "$le_primary_domain" = "$le_primary_domain" ] || le_options="--primary $le_primary_domain --domains $HOSTNAME"
-[ -f "/etc/certbot/dns.conf" ] && chmod -f 600 "/etc/certbot/dns.conf" && [ -n "$(command -v acme-cli 2>/dev/null)" ] && run_post acme-cli $le_options --add $le_domain_list
-le_dir_not_empty="$(find /etc/letsencrypt/live/* -maxdepth 0 -type d | grep -vE 'domain|^$' | head -n1 | grep '^' || false)"
-[ -z "$le_dir_not_empty" ] && le_dir_not_empty="/etc/letsencrypt/live/$(__domainname)" || le_certs=yes
-[ -L "/etc/letsencrypt/live/domain" ] || { [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "/etc/letsencrypt/live/domain"; }
-if [ -d "$le_dir_not_empty" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
-  ln -s "$le_dir_not_empty" "/etc/letsencrypt/live/domain"
+if [ -f "/etc/certbot/dns.conf" ]; then
+  chmod -f 600 "/etc/certbot/dns.conf"
+  [ -n "$(command -v acme-cli 2>/dev/null)" ] && run_post acme-cli $le_options --add $le_domain_list && le_certs="yes"
+fi
+if [ ! -d "/etc/letsencrypt/live/domain" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
+  le_dir_not_empty="$(find /etc/letsencrypt/live/* -maxdepth 0 -type d | grep -vE 'domain|^$' | head -n1 | grep '^' || false)"
+  [ -z "$le_dir_not_empty" ] && le_dir_not_empty="/etc/letsencrypt/live/$(__domainname)" || le_certs="yes"
+  [ -L "/etc/letsencrypt/live/domain" ] || { [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "/etc/letsencrypt/live/domain"; }
+  if [ -d "$le_dir_not_empty" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
+    ln -s "$le_dir_not_empty" "/etc/letsencrypt/live/domain"
+  fi
 fi
 if [ "$le_certs" = "yes" ]; then
   devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
   cat "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/ssl/CA/CasjaysDev/private/localhost.key" >/etc/cockpit/ws-certs.d/1-my-cert.cert
-  find "/etc/postfix" "/etc/httpd" "/etc/nginx" -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
-  find "/etc/postfix" "/etc/httpd" "/etc/nginx" -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
-  find "/etc/postfix" "/etc/httpd" "/etc/nginx" -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
+  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
+  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
+  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
 else
   # If using self-signed certificates
   devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
   cat "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/ssl/CA/CasjaysDev/private/localhost.key" >/etc/cockpit/ws-certs.d/1-my-cert.cert
-  find "/etc/postfix" "/etc/httpd" -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
-  find "/etc/postfix" "/etc/httpd" -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
-  find "/etc/postfix" "/etc/httpd" -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
+  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
+  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \;
+  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \;
 fi
 if [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ]; then
   if [ -d "/usr/local/share/ca-certificate" ]; then
     cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/usr/local/share/ca-certificate/"
-  elif [ -d "/etc/pki/ca-trust/source/" ]; then
+  elif [ -d "/etc/pki/ca-trust/source" ]; then
     cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/pki/ca-trust/source/"
   elif [ -d "/etc/pki/ca-trust/source/anchors" ]; then
     cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/pki/ca-trust/source/anchors/"
@@ -1065,6 +1070,8 @@ mkdir -p "/var/log/munin"
 chmod -f 777 "/var/log/munin"
 does_user_exist 'munin' && chown -Rf "munin" "/var/log/munin"
 does_group_exist "munin" && chgrp -Rf "munin" "/var/log/munin"
+does_user_exist 'munin-node' && chown -Rf "munin" "/var/log/munin-node"
+does_group_exist "munin-node" && chgrp -Rf "munin" "/var/log/munin-node"
 bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
 ##################################################################################################################
 printf_head "Setting up tor"
@@ -1087,6 +1094,9 @@ if [ -n "$(type -P dockermgr 2>/dev/null)" ]; then
   devnull systemctl restart docker
   run_post dockermgr init
 fi
+if [ -n "$(type -P composemgr 2>/dev/null)" ]; then
+  run_post composemgr --config
+fi
 ##################################################################################################################
 printf_head "Setting up bind dns [named]"
 ##################################################################################################################
@@ -1103,13 +1113,13 @@ if [ "$SYSTEM_TYPE" = "vpn" ]; then
 fi
 if [ "$SYSTEM_TYPE" = "mail" ]; then
   printf_head "Running installer script for email server"
-  [ -f "$HOME/Projects/github/dfprivate/email/install.sh" ] && eval "$HOME/Projects/github/dfprivate/email/install.sh" >/dev/null 2>&1
+  [ -x "$HOME/Projects/github/dfprivate/email/install.sh" ] && eval "$HOME/Projects/github/dfprivate/email/install.sh" >/dev/null 2>&1
 elif [ "$SYSTEM_TYPE" = "db" ] || [ "$set_domainname" = "sqldb.us" ]; then
   printf_head "Running installer script for database server"
-  [ -f "$HOME/Projects/github/dfprivate/sql/install.sh" ] && eval "$HOME/Projects/github/dfprivate/sql/install.sh" >/dev/null 2>&1
+  [ -x "$HOME/Projects/github/dfprivate/sql/install.sh" ] && eval "$HOME/Projects/github/dfprivate/sql/install.sh" >/dev/null 2>&1
 elif [ "$SYSTEM_TYPE" = "dns" ] || [ "$set_domainname" = "casjaydns.com" ]; then
   printf_head "Running installer script for dns server"
-  [ -f "$HOME/Projects/github/dfprivate/dns/install.sh" ] && eval "$HOME/Projects/github/dfprivate/dns/install.sh" >/dev/null 2>&1
+  [ -x "$HOME/Projects/github/dfprivate/dns/install.sh" ] && eval "$HOME/Projects/github/dfprivate/dns/install.sh" >/dev/null 2>&1
 fi
 ##################################################################################################################
 printf_head "Generating default webserver for $HOSTNAME"
