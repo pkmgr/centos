@@ -1020,22 +1020,32 @@ fi
 printf_head "Setting up ssl certificates"
 ##################################################################################################################
 # If using letsencrypt certificates
-le_domain_list="apmpproject.org,casjay.app,casjay.cc,casjay.coffee,casjay.dev,casjay.email,casjay.gdn,casjay.info,casjay.link,casjay.org,"
-le_domain_list+="casjay.pro,casjay.us,casjay.work,casjay.xyz,casjaydns.com,casjaydns.fyi,casjaysdev.pro,csj.lol,dockersrc.us,malaks.us,onhealth.xyz,sqldb.us"
-le_primary_domain="$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null | grep '^' || echo "$HOSTNAME")"
-le_options="--primary $le_primary_domain "
-run_post_message="Attempting to get certificates from letsencrypt for $le_primary_domain and all domains in var: le_domain_list"
-[ "$le_primary_domain" = "$le_primary_domain" ] || le_options="--primary $le_primary_domain --domains $HOSTNAME"
-if [ -f "/etc/certbot/dns.conf" ]; then
-  chmod -f 600 "/etc/certbot/dns.conf"
-  [ -n "$(command -v acme-cli 2>/dev/null)" ] && run_post acme-cli $le_options --add $le_domain_list && le_certs="yes"
-fi
-if [ ! -d "/etc/letsencrypt/live/domain" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
-  le_dir_not_empty="$(find /etc/letsencrypt/live/* -maxdepth 0 -type d | grep -vE 'domain|^$' | head -n1 | grep '^' || false)"
-  [ -z "$le_dir_not_empty" ] && le_dir_not_empty="/etc/letsencrypt/live/$(__domainname)" || le_certs="yes"
-  [ -L "/etc/letsencrypt/live/domain" ] || { [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "/etc/letsencrypt/live/domain"; }
-  if [ -d "$le_dir_not_empty" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
-    ln -s "$le_dir_not_empty" "/etc/letsencrypt/live/domain"
+#le_domains="apmpproject.org,casjay.app,casjay.cc,casjay.coffee,casjay.dev,casjay.email,casjay.gdn,casjay.info,casjay.link,casjay.org,"
+#le_domains+="casjay.pro,casjay.us,casjay.work,casjay.xyz,casjaydns.com,casjaydns.fyi,casjaysdev.pro,csj.lol,dockersrc.us,malaks.us,onhealth.xyz,sqldb.us"
+le_domain_list="${LE_DOMAINS:-$le_domains}"
+le_primary_domain="$(echo "$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null)" | grep -E '.*[a-zA-Z0-9][.][a-zA-Z0-9]' | grep '^' || false)"
+if [ -n "$le_primary_domain" ]; then
+  le_options="--primary $le_primary_domain"
+  [ "$le_primary_domain" = "$HOSTNAME" ] || le_options="--primary $le_primary_domain --domains $HOSTNAME"
+  if [ -f "/etc/certbot/dns.conf" ]; then
+    chmod -f 600 "/etc/certbot/dns.conf"
+    if [ -n "$(command -v acme-cli 2>/dev/null)" ]; then
+      if [ -z "$le_domain_list" ]; then
+        run_post_message="Attempting to get certificates from letsencrypt for $le_primary_domain and *.$le_primary_domain"
+        run_post acme-cli $le_options && le_certs="yes"
+      else
+        run_post_message="Attempting to get certificates from letsencrypt for $le_primary_domain and all domains in var: le_domain_list"
+        run_post acme-cli $le_options --add $le_domain_list && le_certs="yes"
+      fi
+    fi
+  fi
+  if [ ! -d "/etc/letsencrypt/live/domain" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
+    le_dir_not_empty="$(find /etc/letsencrypt/live/* -maxdepth 0 -type d | grep -vE 'domain|^$' | head -n1 | grep '^' || false)"
+    [ -z "$le_dir_not_empty" ] && le_dir_not_empty="/etc/letsencrypt/live/$(__domainname)" || le_certs="yes"
+    [ -L "/etc/letsencrypt/live/domain" ] || { [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "/etc/letsencrypt/live/domain"; }
+    if [ -d "$le_dir_not_empty" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
+      ln -s "$le_dir_not_empty" "/etc/letsencrypt/live/domain"
+    fi
   fi
 fi
 if [ "$le_certs" = "yes" ]; then
