@@ -126,7 +126,7 @@ fi
 SCRIPT_OS="AlmaLinux"
 SCRIPT_DESCRIBE="Minimal"
 GITHUB_USER="${GITHUB_USER:-casjay}"
-DFMGR_CONFIGS="misc vim bash git tmux"
+="misc vim bash git tmux"
 SYSTEMMGR_CONFIGS="cron ssh ssl"
 SET_HOSTNAME="$([ -n "$(command -v hostname)" ] && hostname -s 2>/dev/null | grep '^' || echo "${HOSTNAME//.*/}")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -765,7 +765,6 @@ install_pkg yum-utils
 install_pkg zip
 install_pkg zlib
 ##################################################################################################################
-##################################################################################################################
 if [ "$SYSTEM_TYPE" = "dns" ]; then
   if devnull install_pkg ntp || devnull install_pkg ntpsec; then
     printf_cyan "Installed ntp"
@@ -780,10 +779,6 @@ fi
 printf_head "Fixing grub"
 ##################################################################################################################
 run_grub
-##################################################################################################################
-printf_head "Installing custom system configs"
-##################################################################################################################
-run_post "systemmgr install $SYSTEMMGR_CONFIGS"
 ##################################################################################################################
 printf_head "Installing custom web server files"
 ##################################################################################################################
@@ -895,18 +890,6 @@ if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
   echo "kernel.domainname=$set_domainname" >>/etc/sysctl.conf
 fi
 devnull systemctl daemon-reload
-##################################################################################################################
-printf_head "Installing custom dotfiles"
-##################################################################################################################
-run_post "dfmgr update $DFMGR_CONFIGS"
-##################################################################################################################
-printf_head "Updating personal dotfiles"
-##################################################################################################################
-if [ -x "$HOME/.local/dotfiles/personal/install.sh" ]; then
-  run_external bash "$HOME/.local/dotfiles/personal/install.sh"
-fi
-[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
-[ -f "$HOME/.profile" ] && . "$HOME/.profile"
 ##################################################################################################################
 printf_head "Installing incus"
 ##################################################################################################################
@@ -1162,6 +1145,22 @@ echo "" >>/etc/fstab
 #echo "10.0.254.1:/var/www/html/.well-known     /var/www/html/.well-known    nfs defaults,rw 0 0" >> /etc/fstab
 #echo "10.0.254.1:/etc/letsencrypt              /etc/letsencrypt             nfs defaults,rw 0 0" >> /etc/fstab
 #mount -a
+##################################################################################################################
+printf_head "Installing custom dotfiles"
+##################################################################################################################
+run_post "dfmgr update $DFMGR_CONFIGS"
+##################################################################################################################
+printf_head "Updating personal dotfiles"
+##################################################################################################################
+if [ -x "$HOME/.local/dotfiles/personal/install.sh" ]; then
+  run_external bash "$HOME/.local/dotfiles/personal/install.sh"
+fi
+[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+[ -f "$HOME/.profile" ] && . "$HOME/.profile"
+##################################################################################################################
+printf_head "Installing custom system configs"
+##################################################################################################################
+run_post "systemmgr install $SYSTEMMGR_CONFIGS"
 ##################################################################################################################
 printf_head "Fixing ip address"
 ##################################################################################################################
