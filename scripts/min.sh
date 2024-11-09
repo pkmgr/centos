@@ -1106,21 +1106,6 @@ if [ -z "$(command -v named)" ]; then
   devnull rm_if_exists /etc/logrotate.d/named
 fi
 ##################################################################################################################
-if [ "$SYSTEM_TYPE" = "vpn" ]; then
-  system_service_disable httpd
-  system_service_disable nginx
-fi
-if [ "$SYSTEM_TYPE" = "mail" ]; then
-  printf_head "Running installer script for email server"
-  [ -x "$HOME/Projects/github/dfprivate/email/install.sh" ] && eval "$HOME/Projects/github/dfprivate/email/install.sh" >/dev/null 2>&1
-elif [ "$SYSTEM_TYPE" = "db" ] || [ "$set_domainname" = "sqldb.us" ]; then
-  printf_head "Running installer script for database server"
-  [ -x "$HOME/Projects/github/dfprivate/sql/install.sh" ] && eval "$HOME/Projects/github/dfprivate/sql/install.sh" >/dev/null 2>&1
-elif [ "$SYSTEM_TYPE" = "dns" ] || [ "$set_domainname" = "casjaydns.com" ]; then
-  printf_head "Running installer script for dns server"
-  [ -x "$HOME/Projects/github/dfprivate/dns/install.sh" ] && eval "$HOME/Projects/github/dfprivate/dns/install.sh" >/dev/null 2>&1
-fi
-##################################################################################################################
 printf_head "Generating default webserver for $HOSTNAME"
 ##################################################################################################################
 if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
@@ -1161,6 +1146,27 @@ fi
 printf_head "Installing custom system configs"
 ##################################################################################################################
 run_post "systemmgr install $SYSTEMMGR_CONFIGS"
+##################################################################################################################
+if [ "$SYSTEM_TYPE" = "vpn" ]; then
+  system_service_disable httpd
+  system_service_disable nginx
+fi
+if [ "$SYSTEM_TYPE" = "mail" ]; then
+  if [ -x "$HOME/Projects/github/dfprivate/email/install.sh" ]; then 
+    printf_head "Running installer script for email server"
+    eval "$HOME/Projects/github/dfprivate/email/install.sh" >/dev/null 2>&1
+  fi
+elif [ "$SYSTEM_TYPE" = "db" ] || [ "$set_domainname" = "sqldb.us" ]; then
+  if [ -x "$HOME/Projects/github/dfprivate/sql/install.sh" ]; then
+    printf_head "Running installer script for database server"
+    eval "$HOME/Projects/github/dfprivate/sql/install.sh" >/dev/null 2>&1
+  fi 
+elif [ "$SYSTEM_TYPE" = "dns" ] || [ "$set_domainname" = "casjaydns.com" ]; then
+  if [ -x "$HOME/Projects/github/dfprivate/dns/install.sh" ]; then
+  printf_head "Running installer script for dns server"
+  eval "$HOME/Projects/github/dfprivate/dns/install.sh" >/dev/null 2>&1
+  if
+fi
 ##################################################################################################################
 printf_head "Fixing ip address"
 ##################################################################################################################
