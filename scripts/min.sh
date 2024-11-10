@@ -126,8 +126,8 @@ fi
 SCRIPT_OS="AlmaLinux"
 SCRIPT_DESCRIBE="Minimal"
 GITHUB_USER="${GITHUB_USER:-casjay}"
-="misc vim bash git tmux"
 SYSTEMMGR_CONFIGS="cron ssh ssl"
+DFMGR_CONFIGS="misc vim bash git tmux"
 SET_HOSTNAME="$([ -n "$(command -v hostname)" ] && hostname -s 2>/dev/null | grep '^' || echo "${HOSTNAME//.*/}")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_NAME="$APPNAME"
@@ -907,8 +907,10 @@ printf_head "Initializing incus"
 ##################################################################################################################
 incus_setup_failed="no"
 incus_setup_message="Initializing incus has failed"
+systemctl start "incus"
 [ -n "$(type -p setupmgr)" ] && setupmgr incus
 echo "0:1000000:1000000000" | tee /etc/subuid /etc/subgid >/dev/null
+systemctl restart "incus"
 system_service_exists "incus" && devnull systemctl enable --now incus || incus_setup_failed="yes"
 [ "$(ls -A /var/lib/incus/* 2>/dev/null | wc -l)" != "0" ] && incus_setup_message="incus seems to be initialized" || { incus_setup_failed="yes" && incus_setup_message="incus seems to have already been initialized"; }
 if [ "$incus_setup_failed" = "no" ]; then
@@ -935,23 +937,6 @@ devnull firewall-cmd --permanent --zone=trusted --change-interface=incusbr0
 devnull firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 0 -p icmp -s 0.0.0.0/0 -d 0.0.0.0/0 -j ACCEPT
 devnull firewall-cmd --reload
 devnull systemctl stop firewalld
-##################################################################################################################
-printf_head "Enabling services"
-##################################################################################################################
-for service_enable in $SERVICES_ENABLE; do
-  if [ -n "$service_enable" ] && system_service_exists "$service_enable"; then
-    system_service_enable $service_enable
-    systemctl restart $service_enable >/dev/null 2>&1
-  fi
-done
-##################################################################################################################
-printf_head "Disabling services"
-##################################################################################################################
-for service_disable in $SERVICES_DISABLE; do
-  if [ -n "$service_disable" ] && system_service_exists "$service_disable"; then
-    system_service_disable $service_disable
-  fi
-done
 ##################################################################################################################
 printf_head "Creating containers"
 ##################################################################################################################
@@ -1124,7 +1109,7 @@ fi
 ##################################################################################################################
 printf_head "Creating directories"
 ##################################################################################################################
-mkdir -p /mnt/backups /var/www/html/.well-known /etc/letsencrypt/live
+mkdir -p "/mnt/backups" "/var/www/html/.well-known" "/etc/letsencrypt/live"
 echo "" >>/etc/fstab
 #echo "10.0.254.1:/mnt/Volume_1/backups         /mnt/backups                 nfs defaults,rw 0 0" >> /etc/fstab
 #echo "10.0.254.1:/var/www/html/.well-known     /var/www/html/.well-known    nfs defaults,rw 0 0" >> /etc/fstab
@@ -1152,7 +1137,7 @@ if [ "$SYSTEM_TYPE" = "vpn" ]; then
   system_service_disable nginx
 fi
 if [ "$SYSTEM_TYPE" = "mail" ]; then
-  if [ -x "$HOME/Projects/github/dfprivate/email/install.sh" ]; then 
+  if [ -x "$HOME/Projects/github/dfprivate/email/install.sh" ]; then
     printf_head "Running installer script for email server"
     eval "$HOME/Projects/github/dfprivate/email/install.sh" >/dev/null 2>&1
   fi
@@ -1160,13 +1145,30 @@ elif [ "$SYSTEM_TYPE" = "db" ] || [ "$set_domainname" = "sqldb.us" ]; then
   if [ -x "$HOME/Projects/github/dfprivate/sql/install.sh" ]; then
     printf_head "Running installer script for database server"
     eval "$HOME/Projects/github/dfprivate/sql/install.sh" >/dev/null 2>&1
-  fi 
+  fi
 elif [ "$SYSTEM_TYPE" = "dns" ] || [ "$set_domainname" = "casjaydns.com" ]; then
   if [ -x "$HOME/Projects/github/dfprivate/dns/install.sh" ]; then
-  printf_head "Running installer script for dns server"
-  eval "$HOME/Projects/github/dfprivate/dns/install.sh" >/dev/null 2>&1
-  if
+    printf_head "Running installer script for dns server"
+    eval "$HOME/Projects/github/dfprivate/dns/install.sh" >/dev/null 2>&1
+  fi
 fi
+##################################################################################################################
+printf_head "Enabling services"
+##################################################################################################################
+for service_enable in $SERVICES_ENABLE; do
+  if [ -n "$service_enable" ] && system_service_exists "$service_enable"; then
+    system_service_enable $service_enable
+    systemctl restart $service_enable >/dev/null 2>&1
+  fi
+done
+##################################################################################################################
+printf_head "Disabling services"
+##################################################################################################################
+for service_disable in $SERVICES_DISABLE; do
+  if [ -n "$service_disable" ] && system_service_exists "$service_disable"; then
+    system_service_disable $service_disable
+  fi
+done
 ##################################################################################################################
 printf_head "Fixing ip address"
 ##################################################################################################################
