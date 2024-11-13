@@ -977,9 +977,9 @@ printf_head "Configuring cloudflare dns for $SET_HOSTNAME"
 ##################################################################################################################
 if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
   if [ -n "$(type -P "cloudflare")" ] && [ -n "" ]; then
-    if devnull cloudflare update $SET_HOSTNAME --proxy false; then
+    if devnull cloudflare update $CLOUDFLARE_DEFAULT_ZONE $SET_HOSTNAME --proxy false; then
       printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
-    elif devnull cloudflare create $SET_HOSTNAME --proxy false; then
+    elif devnull cloudflare create $CLOUDFLARE_DEFAULT_ZONE $SET_HOSTNAME --proxy false; then
       printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
     fi
   fi
@@ -998,6 +998,7 @@ if [ -n "$le_primary_domain" ]; then
   if [ -f "/etc/certbot/dns.conf" ]; then
     chmod -f 600 "/etc/certbot/dns.conf"
     if [ -n "$(command -v acme-cli 2>/dev/null)" ]; then
+      [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "etc/letsencrypt/live/domain" 
       if [ -z "$le_domain_list" ]; then
         run_post_message="Attempting to get certificates from letsencrypt for $le_primary_domain and *.$le_primary_domain"
         run_post acme-cli $le_options && le_certs="yes"
