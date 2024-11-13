@@ -995,10 +995,11 @@ if [ -n "$le_primary_domain" ]; then
   le_options="--primary $le_primary_domain"
   le_domain_list="${LE_DOMAINS:-$le_domains}"
   [ "$le_primary_domain" = "$HOSTNAME" ] || le_options="--primary $le_primary_domain --domains $HOSTNAME"
+  [ -d "/etc/letsencrypt" ] || mkdir -p "/etc/letsencrypt"
   if [ -f "/etc/certbot/dns.conf" ]; then
     chmod -f 600 "/etc/certbot/dns.conf"
     if [ -n "$(command -v acme-cli 2>/dev/null)" ]; then
-      [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "etc/letsencrypt/live/domain" 
+      [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "/etc/letsencrypt/live/domain" 
       if [ -z "$le_domain_list" ]; then
         run_post_message="Attempting to get certificates from letsencrypt for $le_primary_domain and *.$le_primary_domain"
         run_post acme-cli $le_options && le_certs="yes"
