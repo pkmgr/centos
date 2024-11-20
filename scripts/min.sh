@@ -987,7 +987,7 @@ fi
 ##################################################################################################################
 printf_head "Setting up ssl certificates"
 ##################################################################################################################
-# If using letsencrypt certificates
+## If using letsencrypt certificates
 #le_domains="apmpproject.org,casjay.app,casjay.cc,casjay.coffee,casjay.dev,casjay.email,casjay.gdn,casjay.info,casjay.link,casjay.org,"
 #le_domains+="casjay.pro,casjay.nl,casjay.us,casjay.work,casjay.xyz,casjaydns.com,casjaydns.fyi,casjaysdev.pro,csj.lol,dockersrc.us,malaks.us,onhealth.xyz,sqldb.us"
 le_primary_domain="$(echo "$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null)" | grep -E '.*[a-zA-Z0-9][.][a-zA-Z0-9]' | grep '^' || false)"
@@ -996,17 +996,15 @@ if [ -n "$le_primary_domain" ]; then
   le_options="--primary $le_primary_domain"
   le_domain_list="${LE_DOMAINS:-$le_domains}"
   [ "$le_primary_domain" = "$HOSTNAME" ] || le_options="--primary $le_primary_domain --domains $HOSTNAME"
-  [ -d "/etc/letsencrypt" ] || mkdir -p "/etc/letsencrypt"
-  [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "/etc/letsencrypt/live/domain"
   if [ -f "/etc/certbot/dns.conf" ]; then
     chmod -f 600 "/etc/certbot/dns.conf"
     if [ -n "$(command -v acme-cli 2>/dev/null)" ]; then
       if [ -z "$le_domain_list" ]; then
         run_post_message="Attempting to get certificates from letsencrypt for $le_primary_domain and *.$le_primary_domain"
-        run_post acme-cli $le_options
+        run_post acme-cli --init $le_options
       else
         run_post_message="Attempting to get certificates from letsencrypt for $le_primary_domain and all domains in var: le_domain_list"
-        run_post acme-cli $le_options --add $le_domain_list
+        run_post acme-cli --init $le_options --add $le_domain_list
       fi
     fi
   fi
@@ -1019,20 +1017,10 @@ if [ -n "$le_primary_domain" ]; then
     fi
   fi
 fi
-if [ "$le_certs" = "yes" ]; then
-  devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
-  cat "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/ssl/CA/CasjaysDev/private/localhost.key" >/etc/cockpit/ws-certs.d/1-my-cert.cert
-  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \; 2>/dev/null
-  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \; 2>/dev/null
-  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \; 2>/dev/null
-else
-  # If using self-signed certificates
-  devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
-  cat "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/ssl/CA/CasjaysDev/private/localhost.key" >/etc/cockpit/ws-certs.d/1-my-cert.cert
-  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \; 2>/dev/null
-  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/letsencrypt/live/domain/fullchain.pem#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#g' {} \; 2>/dev/null
-  find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/letsencrypt/live/domain/privkey.pem#/etc/ssl/CA/CasjaysDev/private/localhost.key#g' {} \; 2>/dev/null
-fi
+devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
+cat "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/ssl/CA/CasjaysDev/private/localhost.key" >/etc/cockpit/ws-certs.d/1-my-cert.cert
+find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \; 2>/dev/null
+find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \; 2>/dev/null
 if [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ]; then
   if [ -d "/usr/local/share/ca-certificate" ]; then
     cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/usr/local/share/ca-certificate/"
