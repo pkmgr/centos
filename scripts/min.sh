@@ -1069,22 +1069,6 @@ if [ -n "$(type -P tor 2>/dev/null)" ]; then
   prinf '%s\n\%s\n' "# Generate tor hosnames" "#30 * * * * root " >"/etc/cron.d/tor_hostname"
 fi
 ##################################################################################################################
-printf_head "Setting up docker"
-##################################################################################################################
-if [ -n "$(type -P dockermgr 2>/dev/null)" ]; then
-  devnull systemctl restart docker
-  run_post dockermgr init
-fi
-if [ -n "$(type -P composemgr 2>/dev/null)" ]; then
-  run_post composemgr --config
-fi
-##################################################################################################################
-printf_head "Disabling dnsmasq"
-##################################################################################################################
-system_service_disable dnsmasq
-devnull sed -i 's/^dns=dnsmasq/#&/' /etc/NetworkManager/NetworkManager.conf
-devnull killall dnsmasq
-##################################################################################################################
 printf_head "Setting up bind dns [named]"
 ##################################################################################################################
 if [ -z "$(command -v named)" ]; then
@@ -1172,6 +1156,22 @@ for service_disable in $SERVICES_DISABLE; do
     system_service_disable $service_disable
   fi
 done
+##################################################################################################################
+printf_head "Setting up docker"
+##################################################################################################################
+if [ -n "$(type -P dockermgr 2>/dev/null)" ]; then
+  devnull systemctl restart docker
+  run_post dockermgr init
+fi
+if [ -n "$(type -P composemgr 2>/dev/null)" ]; then
+  run_post composemgr --config
+fi
+##################################################################################################################
+printf_head "Disabling dnsmasq"
+##################################################################################################################
+system_service_disable dnsmasq
+devnull sed -i 's/^dns=dnsmasq/#&/' /etc/NetworkManager/NetworkManager.conf
+devnull killall dnsmasq
 ##################################################################################################################
 printf_head "Fixing ip address"
 ##################################################################################################################
