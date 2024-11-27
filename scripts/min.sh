@@ -974,13 +974,16 @@ printf_head "Configuring applications"
 devnull timedatectl set-ntp true
 ##################################################################################################################
 printf_head "Configuring cloudflare dns for $SET_HOSTNAME"
-CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-casjay.in}"
 ##################################################################################################################
+[ -f "$HOME/.config/secure/cloudflare.txt" ] && . "$HOME/.config/secure/cloudflare.txt"
+CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-casjay.in}"
 if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
   if [ -n "$(type -P "cloudflare")" ]; then
     if devnull cloudflare create $CLOUDFLARE_DEFAULT_ZONE $SET_HOSTNAME --proxy false; then
+      devnull cloudflare create $CLOUDFLARE_DEFAULT_ZONE "*.$SET_HOSTNAME" --proxy false
       printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
     elif devnull cloudflare update $CLOUDFLARE_DEFAULT_ZONE $SET_HOSTNAME --proxy false; then
+      devnull cloudflare update $CLOUDFLARE_DEFAULT_ZONE "*.$SET_HOSTNAME" --proxy false
       printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
     else
       printf_red "Failed to create record $SET_HOSTNAME for zone $CLOUDFLARE_DEFAULT_ZONE"
