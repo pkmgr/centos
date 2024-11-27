@@ -50,7 +50,7 @@ done
 unset pkg
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 read -t 30 -p "Enter your full hostname: (default: $HOSTNAME) " set_hostname
-set_hostname="${set_hostname:=$HOSTNAME}"
+set_hostname="${set_hostname:-$HOSTNAME}"
 if [ -n "$set_hostname" ]; then
   hostnamectl set-hostname $set_hostname && echo "$set_hostname" >/etc/hostname || false
   [ $? -eq 0 ] && [ -n "$(type -P hostname)" ] && hostname -F /etc/hostname
@@ -974,13 +974,16 @@ printf_head "Configuring applications"
 devnull timedatectl set-ntp true
 ##################################################################################################################
 printf_head "Configuring cloudflare dns for $SET_HOSTNAME"
+CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-casjay.in}"
 ##################################################################################################################
 if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
-  if [ -n "$(type -P "cloudflare")" ] && [ -n "" ]; then
-    if devnull cloudflare update $CLOUDFLARE_DEFAULT_ZONE $SET_HOSTNAME --proxy false; then
-      printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
-    elif devnull cloudflare create $CLOUDFLARE_DEFAULT_ZONE $SET_HOSTNAME --proxy false; then
+  if [ -n "$(type -P "cloudflare")" ]; then
+    if devnull cloudflare create $CLOUDFLARE_DEFAULT_ZONE $SET_HOSTNAME --proxy false; then
       printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
+    elif devnull cloudflare update $CLOUDFLARE_DEFAULT_ZONE $SET_HOSTNAME --proxy false; then
+      printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
+    else
+      printf_red "Failed to create record $SET_HOSTNAME for zone $CLOUDFLARE_DEFAULT_ZONE"
     fi
   fi
 fi
@@ -1086,10 +1089,16 @@ printf_head "Creating directories"
 ##################################################################################################################
 mkdir -p "/mnt/backups" "/var/www/html/.well-known" "/etc/letsencrypt/live"
 echo "" >>/etc/fstab
-#echo "10.0.254.1:/mnt/Volume_1/backups         /mnt/backups                 nfs defaults,rw 0 0" >> /etc/fstab
-#echo "10.0.254.1:/var/www/html/.well-known     /var/www/html/.well-known    nfs defaults,rw 0 0" >> /etc/fstab
-#echo "10.0.254.1:/etc/letsencrypt              /etc/letsencrypt             nfs defaults,rw 0 0" >> /etc/fstab
-#mount -a
+if [ -n "$IS_NETWORK_INTERNAL" ] && devnull ping -q -W 1 -c 2 -t 1 10.0.254.1; then
+  echo "10.0.254.1:/mnt/Volume_1/backups         /mnt/backups                 nfs defaults,rw 0 0" >>/etc/fstab
+  echo "10.0.254.1:/var/www/html/.well-known     /var/www/html/.well-known    nfs defaults,rw 0 0" >>/etc/fstab
+  echo "10.0.254.1:/etc/letsencrypt              /etc/letsencrypt             nfs defaults,rw 0 0" >>/etc/fstab
+fi
+mount -a
+##################################################################################################################
+printf_head "Installing custom system configs"
+##################################################################################################################
+run_post "systemmgr install $SYSTEMMGR_CONFIGS"
 ##################################################################################################################
 printf_head "Installing custom dotfiles"
 ##################################################################################################################
@@ -1098,14 +1107,10 @@ run_post "dfmgr update $DFMGR_CONFIGS"
 printf_head "Updating personal dotfiles"
 ##################################################################################################################
 if [ -x "$HOME/.local/dotfiles/personal/install.sh" ]; then
-  run_external bash "$HOME/.local/dotfiles/personal/install.sh"
+  run_external "$HOME/.local/dotfiles/personal/install.sh"
 fi
 [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
 [ -f "$HOME/.profile" ] && . "$HOME/.profile"
-##################################################################################################################
-printf_head "Installing custom system configs"
-##################################################################################################################
-run_post "systemmgr install $SYSTEMMGR_CONFIGS"
 ##################################################################################################################
 if [ "$SYSTEM_TYPE" = "vpn" ]; then
   system_service_disable httpd
@@ -1148,11 +1153,12 @@ done
 printf_head "Setting up docker"
 ##################################################################################################################
 if [ -n "$(type -P dockermgr 2>/dev/null)" ]; then
+  system_service_enable docker
   devnull systemctl restart docker
-  run_post dockermgr init
+  run_post dockermgr init && devnull dockermgr init
 fi
 if [ -n "$(type -P composemgr 2>/dev/null)" ]; then
-  run_post composemgr --config
+  run_post composemgr --config && devnull composemgr --env
 fi
 ##################################################################################################################
 printf_head "Disabling dnsmasq"
@@ -1172,7 +1178,7 @@ find "/etc" "/usr" "/var" -iname '*.rpmnew' -exec rm -Rf {} \; >/dev/null 2>&1
 find "/etc" "/usr" "/var" -iname '*.rpmsave' -exec rm -Rf {} \; >/dev/null 2>&1
 devnull rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
 devnull retrieve_repo_file
-chown -Rf apache:apache "/var/www"
+chown -Rf apache:apache "/var/www" 2>/dev/null
 history -c && history -w
 ##################################################################################################################
 printf_head "Installer version: $(retrieve_version_file)"
@@ -1184,7 +1190,7 @@ echo "Installed on $(date +'%Y-%m-%d at %H:%M %Z')" >"/etc/casjaysdev/updates/ve
 chmod -Rf 664 "/etc/casjaysdev/updates/versions/configs.txt"
 chmod -Rf 664 "/etc/casjaysdev/updates/versions/installed.txt"
 ##################################################################################################################
-printf_head "Finished "
+printf_head "Finished configuring $HOSTNAME"
 echo ""
 ##################################################################################################################
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
