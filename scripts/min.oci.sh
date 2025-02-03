@@ -546,7 +546,7 @@ devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
 grep -q '^named' /etc/passwd && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
-grep -q '^apache' /etc/passwd && devnull chown -Rf apache:apache "/var/www" "/usr/share/httpd"
+grep -q '^apache' /etc/passwd && devnull chown -Rf apache:apache "/var/www" "/usr/local/share/httpd"
 if devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains; then
   newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 fi

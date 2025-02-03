@@ -864,7 +864,7 @@ devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
 if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
-  does_user_exist 'apache' && devnull chown -Rf apache:apache "/var/www" "/usr/share/httpd"
+  does_user_exist 'apache' && devnull chown -Rf apache:apache "/var/www" "/usr/local/share/httpd"
 fi
 if [ -z "$IS_INSTALLED_BIND" ]; then
   does_user_exist 'named' && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named

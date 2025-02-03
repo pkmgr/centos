@@ -1021,7 +1021,7 @@ devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
 devnull sed -i "s#myserverdomainname#$HOSTNAME#g" /etc/sysconfig/network
 devnull sed -i "s#mydomain#$set_domainname#g" /etc/sysconfig/network
 devnull chown -Rf named:named /etc/named* /var/named /var/log/named
-devnull chown -Rf apache:apache /var/www /usr/share/httpd
+devnull chown -Rf apache:apache /var/www /usr/local/share/httpd
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
