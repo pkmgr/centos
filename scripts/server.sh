@@ -1066,11 +1066,13 @@ devnull git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/ht
 devnull find /tmp/configs -type f -iname "*.sh" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.pl" -exec chmod 755 {} \;
 devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \; &>/dev/null
-devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \; &>/dev/null
+devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \;
+devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$(hostname -f)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$(hostname -s)#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$set_domainname#g" {} \;
+[ -n "$NETDEV" ] && devnull find -L /tmp/configs -type f -exec sed -i "s#mynetworkdevice#$NETDEV#g" {} \; || devnull find -L /tmp/configs -type f -exec sed -i "s#mynetworkdevice#eth0#g" {} \;
+[ -n "$NETDEV" ] && [ -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" ] && devnull mv -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" "/etc/sysconfig/network-scripts/ifcfg-$NETDEV.sample"
 #devnull rm -Rf /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
 devnull mkdir -p /etc/rsync.d /var/log/named
 devnull cp -Rf /tmp/configs/{etc,root,usr,var}* /
@@ -1121,8 +1123,8 @@ echo "" >>/etc/fstab
 update-ca-trust && update-ca-trust extract
 # If using letsencrypt certificates
 chmod 600 /etc/named/certbot-update.conf
-if [ -d /etc/letsencrypt/live/$(domainname) ] || [ -d /etc/letsencrypt/live/domain ]; then
-  ln -s /etc/letsencrypt/live/$(domainname) /etc/letsencrypt/live/domain
+if [ -d "/etc/letsencrypt/live/$set_domainname" ] || [ -d "/etc/letsencrypt/live/domain" ]; then
+  [ -d "/etc/letsencrypt/live/domain" ] || ln -sf "/etc/letsencrypt/live/$set_domainname" /etc/letsencrypt/live/domain
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
   find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
   if [ -d "/etc/cockpit/ws-certs.d" ]; then

@@ -50,10 +50,11 @@ done
 unset pkg
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 read -t 30 -p "Enter your full hostname: (default: $HOSTNAME) " set_hostname
-set_hostname="${set_hostname:-$HOSTNAME}"
+set_hostname="${set_hostname:-$(hostname -f | grep '^' || echo "$HOSTNAME")}"
 if [ -n "$set_hostname" ]; then
   hostnamectl set-hostname $set_hostname && echo "$set_hostname" >/etc/hostname || false
   [ $? -eq 0 ] && [ -n "$(type -P hostname)" ] && hostname -F /etc/hostname
+  MY_HOST_NAME="$set_hostname"
   unset set_hostname
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -128,7 +129,7 @@ SCRIPT_DESCRIBE="Minimal"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 SYSTEMMGR_CONFIGS="cron ssh ssl"
 DFMGR_CONFIGS="misc vim bash git tmux"
-SET_HOSTNAME="$([ -n "$(command -v hostname)" ] && hostname -s 2>/dev/null | grep '^' || echo "${HOSTNAME//.*/}")"
+SET_HOSTNAME="$([ -n "$(command -v hostname)" ] && hostname -s 2>/dev/null | grep '^' || echo "${MY_HOST_NAME//.*/}")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_NAME="$APPNAME"
 SCRIPT_NAME="${SCRIPT_NAME%.*}"
@@ -173,6 +174,16 @@ system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && exe
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 does_user_exist() { grep -qs "^$1:" "/etc/passwd" || return 1; }
 does_group_exist() { grep -qs "^$1:" "/etc/group" || return 1; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+copy_ca_certs() {
+  [ -d "/etc/letsencrypt/live/domain" ] || mkdir -p "/etc/letsencrypt/live/domain"
+  [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ] && cp -Rfv "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/letsencrypt/live/domain/cert.pem"
+  [ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rfv "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/chain.pem"
+  [ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rfv "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/fullchain.pem"
+  [ -f "/etc/ssl/CA/CasjaysDev/private/localhost.key" ] && cp -Rfv "/etc/ssl/CA/CasjaysDev/private/localhost.key" "/etc/letsencrypt/live/domain/privkey.pem"
+  find "/etc/letsencrypt" -type f -exec chmod 664 {} \;
+  find "/etc/letsencrypt" -type d -exec chmod 755 {} \;
+}
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __dnf_yum() {
   local rhel_pkgmgr="" opts="--skip-broken"
@@ -276,24 +287,14 @@ run_init_check() {
   yum clean all &>/dev/null || true
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__domainname() {
-  local domain=""
-  if [ -n "$(type -P domainname)" ]; then
-    domain="$(domainname 2>/dev/null | grep -v '(none)' | grep '^')"
-  elif [ -n "$(type -P hostname)" ]; then
-    domain="$(hostname -d 2>/dev/null | grep -v '(none)' | grep '^')"
-  fi
-  echo "${domain:-$HOSTNAME}"
-}
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __yum() { yum "$@" $yum_opts &>/dev/null || return 1; }
 grab_remote_file() { urlverify "$1" && curl -q -SLs "$1" || exit 1; }
 backup_repo_files() { cp -Rf "/etc/yum.repos.d/." "$BACKUP_DIR" 2>/dev/null || return 0; }
 rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos.d"/* &>/dev/null || return 0; }
 run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
-domain_name() { hostname -d | grep '^' || hostname -f | awk -F'.' '{$1="";OFS="." ; print $0}' | sed 's/^.//;s| |.|g' | grep '^'; }
 retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
+domain_name() { hostname -d | grep -Fv '(none)' | grep '^' || hostname -f | awk -F'.' '{$1="";OFS="." ; print $0}' | sed 's/^.//;s| |.|g' | grep '^' || echo "$HOSTNAME"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 printf_head() {
   printf '%b##################################################\n' "$CYAN"
@@ -709,6 +710,13 @@ install_pkg oddjob-mkhomedir
 install_pkg openssh-server
 install_pkg openssl
 install_pkg passwd
+install_pkg perl-CPAN
+install_pkg perl-CPAN-Meta
+install_pkg perl-DBD-Pg
+install_pkg perl-DBD-MySQL
+install_pkg perl-DBD-SQLite
+install_pkg perl-DBD-MariaDB
+install_pkg perl-DBD-Firebird
 install_pkg php
 install_pkg php-cli
 install_pkg php-common
@@ -852,8 +860,10 @@ devnull find /tmp/configs -type f -iname ".gitkeep" -exec rm -Rf {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$set_domainname#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$myhostnameshort#g" {} \;
 devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$myserverdomainname#g" {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \; &>/dev/null
-devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \; &>/dev/null
+devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \;
+devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \;
+[ -n "$NETDEV" ] && devnull find -L /tmp/configs -type f -exec sed -i "s#mynetworkdevice#$NETDEV#g" {} \; || devnull find -L /tmp/configs -type f -exec sed -i "s#mynetworkdevice#eth0#g" {} \;
+[ -n "$NETDEV" ] && [ -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" ] && devnull mv -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" "/etc/sysconfig/network-scripts/ifcfg-$NETDEV.sample"
 [ -n "$does_lo_have_ipv6" ] || sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' /tmp/configs/etc/postfix/main.cf
 devnull rm_if_exists /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
 devnull mkdir -p /etc/rsync.d /var/log/named
@@ -1012,26 +1022,30 @@ if [ -n "$le_primary_domain" ]; then
       fi
     fi
   fi
-  if [ ! -d "/etc/letsencrypt/live/domain" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
-    le_dir_not_empty="$(find /etc/letsencrypt/live/* -maxdepth 0 -type d 2>/dev/null | grep -vE 'domain|^$' | head -n1 | grep '^' || false)"
-    [ -z "$le_dir_not_empty" ] && le_dir_not_empty="/etc/letsencrypt/live/$(__domainname)" && le_certs="no" || le_certs="yes"
-    [ -d "/etc/letsencrypt/live/domain" ] && rm -Rf "/etc/letsencrypt/live/domain"
-    if [ -d "$le_dir_not_empty" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
-      ln -s "$le_dir_not_empty" "/etc/letsencrypt/live/domain"
+  if [ -d "/etc/letsencrypt/live/$le_primary_domain" ] || [ -d "/etc/letsencrypt/live/domain" ]; then
+    [ -d "/etc/letsencrypt/live/domain" ] || ln -sf "/etc/letsencrypt/live/$le_primary_domain" /etc/letsencrypt/live/domain
+    find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
+    find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
+    if [ -d "/etc/cockpit/ws-certs.d" ]; then
+      devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
+      cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
+      cat /etc/letsencrypt/live/domain/privkey.pem >>/etc/cockpit/ws-certs.d/1-my-cert.cert
     fi
+    find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \; 2>/dev/null
+    find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \; 2>/dev/null
+  else
+    copy_ca_certs
   fi
+else
+  copy_ca_certs
 fi
-devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
-cat "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/ssl/CA/CasjaysDev/private/localhost.key" >/etc/cockpit/ws-certs.d/1-my-cert.cert
-find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \; 2>/dev/null
-find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \; 2>/dev/null
 if [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ]; then
   if [ -d "/usr/local/share/ca-certificate" ]; then
     cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/usr/local/share/ca-certificate/"
-  elif [ -d "/etc/pki/ca-trust/source" ]; then
-    cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/pki/ca-trust/source/"
   elif [ -d "/etc/pki/ca-trust/source/anchors" ]; then
     cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/pki/ca-trust/source/anchors/"
+  elif [ -d "/etc/pki/ca-trust/source" ]; then
+    cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/pki/ca-trust/source/"
   fi
 fi
 [ -n "$(type -P update-ca-trust)" ] && devnull update-ca-trust && devnull update-ca-trust extract
