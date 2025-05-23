@@ -176,13 +176,16 @@ does_user_exist() { grep -qs "^$1:" "/etc/passwd" || return 1; }
 does_group_exist() { grep -qs "^$1:" "/etc/group" || return 1; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 copy_ca_certs() {
-  [ -d "/etc/letsencrypt/live/domain" ] || mkdir -p "/etc/letsencrypt/live/domain"
-  [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ] && cp -Rfv "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/letsencrypt/live/domain/cert.pem"
-  [ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rfv "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/chain.pem"
-  [ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rfv "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/fullchain.pem"
-  [ -f "/etc/ssl/CA/CasjaysDev/private/localhost.key" ] && cp -Rfv "/etc/ssl/CA/CasjaysDev/private/localhost.key" "/etc/letsencrypt/live/domain/privkey.pem"
-  find "/etc/letsencrypt" -type f -exec chmod 664 {} \;
-  find "/etc/letsencrypt" -type d -exec chmod 755 {} \;
+  if [ ! -d "/etc/letsencrypt/live/domain" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
+    printf_red "letsencrypt seemed to have failed: Installing self-signed certificates"
+    mkdir -p "/etc/letsencrypt/live/domain"
+    [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/letsencrypt/live/domain/cert.pem"
+    [ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/chain.pem"
+    [ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/fullchain.pem"
+    [ -f "/etc/ssl/CA/CasjaysDev/private/localhost.key" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/private/localhost.key" "/etc/letsencrypt/live/domain/privkey.pem"
+    find "/etc/letsencrypt" -type f -exec chmod 664 {} \;
+    find "/etc/letsencrypt" -type d -exec chmod 755 {} \;
+  fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __dnf_yum() {
@@ -983,10 +986,10 @@ if [ -n "$le_primary_domain" ]; then
     chmod -f 600 "/etc/certbot/dns.conf"
     if [ -n "$(command -v acme-cli 2>/dev/null)" ]; then
       if [ -z "$le_domain_list" ]; then
-        run_post_message="Attempting to get certificates from letsencrypt for $le_primary_domain and *.$le_primary_domain"
+        printf_cyan "Attempting to get certificates from letsencrypt for $le_primary_domain and *.$le_primary_domain"
         run_post acme-cli --init $le_options
       else
-        run_post_message="Attempting to get certificates from letsencrypt for $le_primary_domain and all domains in var: le_domain_list"
+        printf_cyan "Attempting to get certificates from letsencrypt for $le_primary_domain and all domains in var: le_domain_list"
         run_post acme-cli --init $le_options --add $le_domain_list
       fi
     fi
@@ -1002,6 +1005,7 @@ if [ -n "$le_primary_domain" ]; then
     fi
     find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \; 2>/dev/null
     find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \; 2>/dev/null
+    printf_blue "letsencrypt certificates have been created"
   else
     copy_ca_certs
   fi
