@@ -948,37 +948,6 @@ devnull firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 0 -p icmp
 devnull firewall-cmd --reload
 devnull systemctl stop firewalld
 ##################################################################################################################
-printf_head "Creating containers"
-##################################################################################################################
-if [ "$incus_setup_failed" != "yes" ]; then
-  printf_green "Creating container rhel using the image: almalinux/9"
-  if run_post devnull incus create images:almalinux/9 almalinux; then
-    devnull incus config set almalinux security.nesting=true security.privileged=true
-    run_post devnull incus snapshot create almalinux default
-    if devnull incus start almalinux; then
-      printf_cyan "Created almalinux"
-    fi
-  fi
-  printf_green "Creating container debian using the image: debian/12"
-  if run_post devnull incus create images:debian/12 debian; then
-    devnull incus config set debian security.nesting=true security.privileged=true
-    run_post devnull incus snapshot create debian default
-    if devnull incus start debian; then
-      printf_cyan "Created debian"
-    fi
-  fi
-  printf_green "Creating container ubuntu using the image: ubuntu/jammy"
-  if run_post devnull incus create images:ubuntu/jammy ubuntu; then
-    devnull incus config set ubuntu security.nesting=true security.privileged=true
-    run_post devnull incus snapshot create ubuntu default
-    if devnull incus start ubuntu; then
-      printf_cyan "Created ubuntu"
-    fi
-  fi
-else
-  printf_red "${incus_setup_message:-Initializing incus has failed}"
-fi
-##################################################################################################################
 printf_head "Configuring applications"
 ##################################################################################################################
 devnull timedatectl set-ntp true
