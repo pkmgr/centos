@@ -890,10 +890,12 @@ else
   done
   devnull chgrp postdrop /usr/sbin/postqueue
   devnull chgrp postdrop /usr/sbin/postdrop
+  devnull chgrp postdrop /var/spool/postfix/maildrop
+  devnull chgrp postdrop /var/spool/postfix/public
+  devnull chown root /var/spool/postfix/pid
   devnull chmod g+s /usr/sbin/postqueue
   devnull chmod g+s /usr/sbin/postdrop
   devnull killall -9 postdrop
-  devnull chown -R postfix.postfix /var/spool/postfix*
   devnull postfix set-permissions create-missing
   unset postfix_proto
   devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
@@ -1001,7 +1003,7 @@ if [ -n "$le_primary_domain" ]; then
     if [ -d "/etc/cockpit/ws-certs.d" ]; then
       devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
       cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
-      cat /etc/letsencrypt/live/domain/privkey.pem >>/etc/cockpit/ws-certs.d/1-my-cert.cert
+      cat /etc/letsencrypt/live/domain/privkey.pem >>/etc/cockpit/ws-certs.d/1-my-cert.key
     fi
     find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \; 2>/dev/null
     find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \; 2>/dev/null
