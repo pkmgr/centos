@@ -493,12 +493,6 @@ jzlib
 kbd
 kbd-legacy
 kbd-misc
-kernel
-kernel
-kernel-devel
-kernel-headers
-kernel-tools
-kernel-tools-libs
 kexec-tools
 keyutils
 keyutils-libs
