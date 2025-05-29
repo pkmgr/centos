@@ -852,8 +852,9 @@ printf_head "setting up config files"
 set_domainname="$(domain_name)"
 myhostnameshort="$SET_HOSTNAME"
 myserverdomainname="$(hostname -f)"
-does_lo_have_ipv6="$(ifconfig lo | grep 'inet6' | grep -q '::1' && echo yes || false)"
 NETDEV="$(ip route | grep 'default' | sed -e "s/^.*dev.//" -e "s/.proto.*//")"
+does_lo_have_ipv6="$(ifconfig lo | grep 'inet6' | grep -q '::1' && echo yes || false)"
+GET_WEB_USER="$(grep -REi 'apache|httpd|www-data|nginx' /etc/passwd | head -n1 | cut -d: -f1 || false)"
 [ -n "$NETDEV" ] && mycurrentipaddress_6="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v 'docker' | grep inet6 | grep -i 'global' | awk '{print $2}' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -Ev '^::1|^$' | grep ':.*:' | head -n1 | grep '^' || echo '::1')"
 [ -n "$NETDEV" ] && mycurrentipaddress_4="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v '127.0.0.' | grep inet | grep -v 'inet6' | awk '{print $2}' | sed 's#addr:##g' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -vE '|127\.0\.0|172\.17\.0|:.*:|^$' | head -n1 | grep '[0-9]\.[0-9]' || echo '127.0.0.1')"
 devnull find /tmp/configs -type f -iname "*.sh" -exec chmod 755 {} \;
@@ -877,7 +878,7 @@ devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
 if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
-  does_user_exist 'apache' && devnull chown -Rf apache:apache "/var/www" "/usr/local/share/httpd"
+  does_user_exist "$GET_WEB_USER" && devnull chown -Rf $GET_WEB_USER:$GET_WEB_USER "/var/www" "/usr/local/share/httpd"
 fi
 if [ -z "$IS_INSTALLED_BIND" ]; then
   does_user_exist 'named' && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
@@ -960,7 +961,7 @@ devnull timedatectl set-ntp true
 printf_head "Configuring cloudflare dns for $SET_HOSTNAME"
 ##################################################################################################################
 [ -f "$HOME/.config/secure/cloudflare.txt" ] && . "$HOME/.config/secure/cloudflare.txt"
-CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-casjay.in}"
+CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-internal2.me}"
 if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
   if [ -n "$(type -P "cloudflare")" ]; then
     if devnull cloudflare create $CLOUDFLARE_DEFAULT_ZONE $SET_HOSTNAME --proxy false; then
@@ -1007,6 +1008,60 @@ if [ -n "$le_primary_domain" ]; then
     fi
     find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \; 2>/dev/null
     find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \; 2>/dev/null
+    if [ -d "/etc/letsencrypt/renewal-hooks/post" ]; then
+      if [ ! -f "/etc/letsencrypt/renewal-hooks/post/exec.sh" ]; then
+        cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/system.sh" >/dev/null
+#!/usr/bin/env sh
+# Insert any custom commands you want executed after a new cert or upon renewal
+
+EOF
+      fi
+      cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/system.sh" >/dev/null
+#!/usr/bin/env sh
+cat "/etc/letsencrypt/live/domain/privkey.pem" >"/etc/ssl/certs/\$HOSTNAME.key"
+cat "/etc/letsencrypt/live/domain/fullchain.pem" >"/etc/ssl/certs/\$HOSTNAME.cert"
+EOF
+
+      cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/cockpit.sh" >/dev/null
+#!/usr/bin/env sh
+cat "/etc/letsencrypt/live/domain/privkey.pem" >"/etc/cockpit/ws-certs.d/1-my-cert.key"
+cat "/etc/letsencrypt/live/domain/fullchain.pem" >"/etc/cockpit/ws-certs.d/1-my-cert.cert"
+systemctl is-enabled cockpit >/dev/null 2>&1 && systemctl restart cockpit >/dev/null 2>&1
+
+EOF
+      cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/nginx.sh" >/dev/null
+#!/usr/bin/env sh
+systemctl is-enabled nginx >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1
+
+EOF
+
+      cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/httpd.sh" >/dev/null
+#!/usr/bin/env sh
+systemctl is-enabled httpd >/dev/null 2>&1 && systemctl reload httpd >/dev/null 2>&1
+
+EOF
+
+      cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/postfix.sh" >/dev/null
+#!/usr/bin/env sh
+systemctl is-enabled postfix >/dev/null 2>&1 && systemctl reload postfix >/dev/null 2>&1
+
+EOF
+      if [ -d "/opt/openfire/resources/security" ]; then
+        cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/openfire.sh" >/dev/null
+#!/usr/bin/env sh
+privkey="\$(realpath "/etc/letsencrypt/live/domain/privkey.pem")"
+fullchain="\$(realpath "/etc/letsencrypt/live/domain/fullchain.pem")"
+openfireSSL="/opt/openfire/resources/security/hotdeploy"
+[ -d "\$openfireSSL" ] || mkdir -p "\$openfireSSL"
+cat "\$fullchain" "\$openfireSSL/casjay-social-cert.pem"
+cat "\$privkey" "\$openfireSSL/casjay-social-privkey.pem"
+chown -R daemon /opt/openfire/resources/security/hotdeploy
+ctl is-enabled openfire >/dev/null 2>&1 && systemctl restart openfire >/dev/null 2>&1
+
+EOF
+      fi
+      chmod +x "/etc/letsencrypt/renewal-hooks/post"/*
+    fi
     printf_blue "letsencrypt certificates have been created"
   else
     copy_ca_certs
