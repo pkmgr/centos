@@ -1133,6 +1133,57 @@ if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
   fi
 fi
 ##################################################################################################################
+printf_head "Setting up the reverse proxy for cockpit"
+##################################################################################################################
+if [ -d "/etc/nginx/vhosts.d" ]; then
+  cat <<EOF | tee "/etc/nginx/vhosts.d/cockpit.$set_domainname.conf" >/dev/null
+# reverse proxy for cockpit.$set_domainname
+# upstream cockpit { server https://localhost:41443 fail_timeout=0; }
+
+server {
+  listen                                    443 ssl;
+  listen                                    [::]:443 ssl;
+  server_name                               cockpit.$set_domainname;
+  access_log                                /var/log/nginx/access.cockpit.$set_domainname.log;
+  error_log                                 /var/log/nginx/error.cockpit.$set_domainname.log info;
+  keepalive_timeout                         75 75;
+  client_max_body_size                      0;
+  chunked_transfer_encoding                 on;
+  add_header Strict-Transport-Security      "max-age=7200";
+  ssl_protocols                             TLSv1.1 TLSv1.2;
+  ssl_ciphers                               'EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH';
+  ssl_prefer_server_ciphers                 on;
+  ssl_session_cache                         shared:SSL:10m;
+  ssl_session_timeout                       1d;
+  ssl_certificate                           /etc/letsencrypt/live/domain/fullchain.pem;
+  ssl_certificate_key                       /etc/letsencrypt/live/domain/privkey.pem;
+
+  location / {
+    proxy_ssl_verify                        off;
+    send_timeout                            3600;
+    proxy_connect_timeout                   3600;
+    proxy_send_timeout                      3600;
+    proxy_read_timeout                      3600;
+    proxy_http_version                      1.1;
+    proxy_request_buffering                 off;
+    proxy_buffering                         off;
+    proxy_set_header                        Host               \$host;
+    proxy_set_header                        X-Real-IP          \$remote_addr;
+    proxy_set_header                        X-Forwarded-Proto  \$scheme;
+    proxy_set_header                        X-Forwarded-Scheme \$scheme;
+    proxy_set_header                        X-Forwarded-For    \$remote_addr;
+    proxy_set_header                        X-Forwarded-Port   \$server_port;
+    proxy_set_header                        Upgrade            \$http_upgrade;
+    proxy_set_header                        Connection         \$connection_upgrade;
+    proxy_set_header                        Accept-Encoding "";
+    proxy_redirect                          http:// https://;
+    proxy_pass                              https://localhost:41443;
+    }
+}
+
+EOF
+fi
+##################################################################################################################
 printf_head "Creating directories"
 ##################################################################################################################
 mkdir -p "/mnt/backups" "/var/www/html/.well-known" "/etc/letsencrypt/live"
