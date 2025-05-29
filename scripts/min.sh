@@ -979,12 +979,13 @@ fi
 printf_head "Setting up ssl certificates"
 ##################################################################################################################
 ## If using letsencrypt certificates
+[ -f "$HOME/.config/myscripts/acme-cli/settings.conf" ] && . "$HOME/.config/myscripts/acme-cli/settings.conf"
 le_primary_domain="$(echo "$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null)" | grep -E '.*[a-zA-Z0-9][.][a-zA-Z0-9]' | grep '^' || false)"
 if [ -n "$le_primary_domain" ]; then
   le_certs="yes"
   le_options="--primary $le_primary_domain"
-  le_domain_list="${LE_DOMAINS:-$le_domains}"
-  [ "$le_primary_domain" = "$HOSTNAME" ] || le_options="--primary $le_primary_domain --domains *.$HOSTNAME,*.$le_primary_domain"
+  le_domain_list="${ACME_CLI_DOMAIN_LIST:-$le_domains}"
+  [ "$le_primary_domain" = "$HOSTNAME" ] || le_options=""
   if [ -f "/etc/certbot/dns.conf" ]; then
     chmod -f 600 "/etc/certbot/dns.conf"
     if [ -n "$(command -v acme-cli 2>/dev/null)" ]; then
@@ -993,7 +994,7 @@ if [ -n "$le_primary_domain" ]; then
         run_post acme-cli --init $le_options
       else
         printf_cyan "Attempting to get certificates from letsencrypt for $le_primary_domain and all domains in var: le_domain_list"
-        run_post acme-cli --init $le_options --add $le_domain_list
+        run_post acme-cli --init --no-test --no-subs
       fi
     fi
   fi
