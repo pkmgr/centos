@@ -76,31 +76,33 @@ if [ -n "$root_pass_1" ]; then
 fi
 unset root_pass_1 root_pass_2
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SWAP_SIZE="$(swapon --show=SIZE --noheadings | sed 's/[0-9]//g' | head -n1 | grep 'M' || swapon --show=SIZE --noheadings | sed 's/[0-9]//g' | head -n1 | grep 'G' || false)"
-if [ "$SWAP_SIZE" != "G" ]; then
-  swap_file_size="4096"
-  swap_file="swapFile"
-  swap_dir="/var/cache/swaps"
-  kilobit="2000000"
-  gigabit=$((kilobit / 1000))
-  mem="$(free | grep ':' | awk '{print $2}' | head -n1 | grep '^' || echo "1")"
-  if [ $mem -le $kilobit ] && [ ! -f "$swap_dir/$swap_file" ]; then
-    echo "Setting up swap in $swap_dir/$swap_file"
-    echo "This may take a few minutes so enjoy your coffee"
-    mkdir -p "$swap_dir"
-    if dd if=/dev/zero of=$swap_dir/$swap_file bs=1MB count=$swap_file_size &>/dev/null; then
-      echo "swap size is: ${swap_file_size}MB"
-      chmod 600 $swap_dir/$swap_file
-      mkswap $swap_dir/$swap_file >/dev/null
-      swapon $swap_dir/$swap_file >/dev/null
-      if ! grep -qs "$swap_dir/$swap_file" /etc/fstab; then
-        echo "$swap_dir/$swap_file          swap        swap             defaults          0 0" | tee -a /etc/fstab >/dev/null
+if [ "$(ls -A /var/cache/swaps 2>/dev/null | wc -l)" -eq 0 ]; then
+  SWAP_SIZE="$(swapon --show=SIZE --noheadings | sed 's/[0-9]//g' | head -n1 | grep 'M' || swapon --show=SIZE --noheadings | sed 's/[0-9]//g' | head -n1 | grep 'G' || false)"
+  if [ "$SWAP_SIZE" != "G" ]; then
+    swap_file_size="4096"
+    swap_file="swapFile"
+    swap_dir="/var/cache/swaps"
+    kilobit="2000000"
+    gigabit=$((kilobit / 1000))
+    mem="$(free | grep ':' | awk '{print $2}' | head -n1 | grep '^' || echo "1")"
+    if [ $mem -le $kilobit ] && [ ! -f "$swap_dir/$swap_file" ]; then
+      echo "Setting up swap in $swap_dir/$swap_file"
+      echo "This may take a few minutes so enjoy your coffee"
+      mkdir -p "$swap_dir"
+      if dd if=/dev/zero of=$swap_dir/$swap_file bs=1MB count=$swap_file_size &>/dev/null; then
+        echo "swap size is: ${swap_file_size}MB"
+        chmod 600 $swap_dir/$swap_file
+        mkswap $swap_dir/$swap_file >/dev/null
+        swapon $swap_dir/$swap_file >/dev/null
+        if ! grep -qs "$swap_dir/$swap_file" /etc/fstab; then
+          echo "$swap_dir/$swap_file          swap        swap             defaults          0 0" | tee -a /etc/fstab >/dev/null
+        fi
       fi
     fi
+    unset SWAP_SIZE swap_file_size swap_file swap_dir kilobit gigabit mem
+    swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^' && echo "Swap has been enabled"
+    sleep 5
   fi
-  unset SWAP_SIZE swap_file_size swap_file swap_dir kilobit gigabit mem
-  swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^' && echo "Swap has been enabled"
-  sleep 5
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ ! -d "/usr/local/share/CasjaysDev/scripts" ]; then
