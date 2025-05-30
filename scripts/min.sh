@@ -427,7 +427,7 @@ __kernel_ml() {
     printf_cyan "Switching to the newest kernel from elrepo - This may take a few minutes"
     pkgs="$(rpm -qa | grep -v 'kernel-ml' | grep '^kernel')"
     [ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
-    yum install -yyq kernel-ml* >/dev/null || exitC=1
+    yum install -yyq kernel-ml kernel-core kernel-ml-modules kernel-ml-modules-extra kernel-ml-tools >/dev/null || exitC=1
     run_grub
   else
     printf_yellow "kernel-ml doesn't seem to be avaliable"
@@ -446,7 +446,7 @@ __kernel_lt() {
     printf_cyan "Switching to the newest LTS kernel from elrepo - This may take a few minutes"
     pkgs="$(rpm -qa | grep -v 'kernel-lt' | grep '^kernel')"
     [ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
-    yum install -yyq kernel-lt* >/dev/null || exitC=1
+    yum install -yyq kernel-lt kernel-lt-core kernel-lt-modules kernel-lt-modules-extra kernel-lt-tools >/dev/null || exitC=1
     run_grub
   else
     printf_yellow "kernel-lt doesn't seem to be avaliable"
