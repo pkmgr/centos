@@ -217,8 +217,9 @@ remove_pkg() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 install_pkg() {
   local statusCode=0
+  excludes="$exclude_packages"
   if test_pkg "$*"; then
-    execute "__dnf_yum install -q -yy $*" "Installing: $*"
+    execute "__dnf_yum install -q -yy $* $excludes" "Installing: $*"
     test_pkg "$*" &>/dev/null && statusCode=1 || statusCode=0
   else
     statusCode=0
@@ -911,25 +912,34 @@ devnull systemctl daemon-reload
 ##################################################################################################################
 printf_head "Installing incus"
 ##################################################################################################################
+exclude_packages="--exclude=qemu*-9*"
+devnull crb enable
+devnull yum clean packages
 if ! grep -Rqsi 'copr.*incus' '/etc/yum.repos.d'; then
+  echo "Enabling the dnf incus repo"
   devnull dnf -y install epel-release
   devnull dnf -y copr enable neil/incus
   devnull dnf -y config-manager --enable crb
-  devnull crb enable
   __yum makecache
 fi
 install_pkg incus
 install_pkg incus-tools
+install_pkg incus-selinux
+unset exclude_packages
 ##################################################################################################################
 printf_head "Initializing incus"
 ##################################################################################################################
 incus_setup_failed="no"
 incus_setup_message="Initializing incus has failed"
-systemctl start "incus"
 [ -n "$(type -p setupmgr)" ] && setupmgr incus
 echo "0:1000000:1000000000" | tee /etc/subuid /etc/subgid >/dev/null
-systemctl restart "incus"
-system_service_exists "incus" && devnull systemctl enable --now incus || incus_setup_failed="yes"
+if system_service_exists "incus"; then
+  systemctl start "incus"
+  systemctl restart "incus"
+else
+  incus_setup_failed=yes
+fi
+system_service_exists "incus" devnull systemctl enable --now incus || incus_setup_failed="yes"
 [ "$(ls -A /var/lib/incus/* 2>/dev/null | wc -l)" != "0" ] && incus_setup_message="incus seems to be initialized" || { incus_setup_failed="yes" && incus_setup_message="incus seems to have already been initialized"; }
 if [ "$incus_setup_failed" = "no" ]; then
   if incus admin init --network-address 127.0.0.1 --network-port 60443 --storage-backend dir --quiet --auto; then
