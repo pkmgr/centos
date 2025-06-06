@@ -916,7 +916,7 @@ exclude_packages="--exclude=qemu*-9*"
 devnull crb enable
 devnull yum clean packages
 if ! grep -Rqsi 'copr.*incus' '/etc/yum.repos.d'; then
-  echo "Enabling the dnf incus repo"
+  printf_green "Enabling the dnf incus repo"
   devnull dnf -y install epel-release
   devnull dnf -y copr enable neil/incus
   devnull dnf -y config-manager --enable crb
@@ -934,12 +934,12 @@ incus_setup_message="Initializing incus has failed"
 [ -n "$(type -p setupmgr)" ] && setupmgr incus
 echo "0:1000000:1000000000" | tee /etc/subuid /etc/subgid >/dev/null
 if system_service_exists "incus"; then
-  systemctl start "incus"
-  systemctl restart "incus"
+  devnull systemctl start "incus"
+  devnull systemctl restart "incus"
+  devnull systemctl enable --now incus || incus_setup_failed="yes"
 else
   incus_setup_failed=yes
 fi
-system_service_exists "incus" devnull systemctl enable --now incus || incus_setup_failed="yes"
 [ "$(ls -A /var/lib/incus/* 2>/dev/null | wc -l)" != "0" ] && incus_setup_message="incus seems to be initialized" || { incus_setup_failed="yes" && incus_setup_message="incus seems to have already been initialized"; }
 if [ "$incus_setup_failed" = "no" ]; then
   if incus admin init --network-address 127.0.0.1 --network-port 60443 --storage-backend dir --quiet --auto; then
@@ -972,20 +972,23 @@ devnull timedatectl set-ntp true
 ##################################################################################################################
 printf_head "Configuring cloudflare dns for $SET_HOSTNAME"
 ##################################################################################################################
-[ -f "$HOME/.config/secure/cloudflare.txt" ] && . "$HOME/.config/secure/cloudflare.txt"
-CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-internal2.me}"
-if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
-  if [ -n "$(type -P "cloudflare")" ]; then
-    if devnull cloudflare create $SET_HOSTNAME --proxy false; then
-      devnull cloudflare create "*.$SET_HOSTNAME" --proxy false
-      printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
-    elif devnull cloudflare update $SET_HOSTNAME --proxy false; then
-      devnull cloudflare update "*.$SET_HOSTNAME" --proxy false
-      printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
-    else
-      printf_red "Failed to create record $SET_HOSTNAME for zone $CLOUDFLARE_DEFAULT_ZONE"
+if [ -f "$HOME/.config/secure/cloudflare.txt" ]; then
+  . "$HOME/.config/secure/cloudflare.txt"
+  CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-internal2.me}"
+  if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
+    if [ -n "$(type -P "cloudflare")" ]; then
+      if devnull cloudflare create $SET_HOSTNAME --proxy false; then
+        devnull cloudflare create "*.$SET_HOSTNAME" --proxy false
+        printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
+      elif devnull cloudflare update $SET_HOSTNAME --proxy false; then
+        devnull cloudflare update "*.$SET_HOSTNAME" --proxy false
+        printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
+      else
+        printf_red "Failed to create record $SET_HOSTNAME for zone $CLOUDFLARE_DEFAULT_ZONE"
+      fi
     fi
   fi
+  printf_yellow "Can no load $HOME/.config/secure/cloudflare.txt"
 fi
 ##################################################################################################################
 printf_head "Setting up ssl certificates"
