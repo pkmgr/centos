@@ -1012,14 +1012,14 @@ server {
     proxy_http_version                      1.1;
     proxy_request_buffering                 off;
     proxy_buffering                         off;
-    proxy_set_header                        Host               $host;
-    proxy_set_header                        X-Real-IP          $remote_addr;
-    proxy_set_header                        X-Forwarded-Proto  $scheme;
-    proxy_set_header                        X-Forwarded-Scheme $scheme;
-    proxy_set_header                        X-Forwarded-For    $remote_addr;
-    proxy_set_header                        X-Forwarded-Port   $server_port;
-    proxy_set_header                        Upgrade            $http_upgrade;
-    proxy_set_header                        Connection         $connection_upgrade;
+    proxy_set_header                        Host               \$host;
+    proxy_set_header                        X-Real-IP          \$remote_addr;
+    proxy_set_header                        X-Forwarded-Proto  \$scheme;
+    proxy_set_header                        X-Forwarded-Scheme \$scheme;
+    proxy_set_header                        X-Forwarded-For    \$remote_addr;
+    proxy_set_header                        X-Forwarded-Port   \$server_port;
+    proxy_set_header                        Upgrade            \$http_upgrade;
+    proxy_set_header                        Connection         \$connection_upgrade;
     proxy_set_header                        Accept-Encoding "";
     proxy_pass                              https://$HOSTNAME/;
     }
