@@ -995,7 +995,7 @@ else
 fi
 if [ "$CLOUDFLARE_DOMAIN" = "yes" ]; then
   if [ -d "/etc/nginx/vhosts.d" ]; then
-    cat <<EOF >"/etc/nginx/vhosts.d/$CLOUDFLARE_DOMAIN.conf"
+    cat <<EOF >"/etc/nginx/vhosts.d/$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE.conf"
 server {
     listen                                  80;
     listen                                  [::]:80;
