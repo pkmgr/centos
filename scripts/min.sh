@@ -988,6 +988,7 @@ if [ -f "$HOME/.config/secure/cloudflare.txt" ]; then
       fi
     fi
   fi
+else
   printf_yellow "Can no load $HOME/.config/secure/cloudflare.txt"
 fi
 ##################################################################################################################
