@@ -977,12 +977,14 @@ if [ -f "$HOME/.config/secure/cloudflare.txt" ]; then
   CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-internal2.me}"
   if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
     if [ -n "$(type -P "cloudflare")" ]; then
-      if devnull cloudflare create $SET_HOSTNAME --proxy false; then
-        devnull cloudflare create "*.$SET_HOSTNAME" --proxy false
-        printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
-      elif devnull cloudflare update $SET_HOSTNAME --proxy false; then
-        devnull cloudflare update "*.$SET_HOSTNAME" --proxy false
+      if devnull cloudflare update $SET_HOSTNAME --proxy true; then
+        CLOUDFLARE_DOMAIN="yes"
+        devnull cloudflare update "*.$SET_HOSTNAME" --proxy true
         printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
+      elif devnull cloudflare create $SET_HOSTNAME --proxy true; then
+        CLOUDFLARE_DOMAIN="yes"
+        devnull cloudflare create "*.$SET_HOSTNAME" --proxy true
+        printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
       else
         printf_red "Failed to create record $SET_HOSTNAME for zone $CLOUDFLARE_DEFAULT_ZONE"
       fi
@@ -990,6 +992,41 @@ if [ -f "$HOME/.config/secure/cloudflare.txt" ]; then
   fi
 else
   printf_yellow "Can no load $HOME/.config/secure/cloudflare.txt"
+fi
+if [ "$CLOUDFLARE_DOMAIN" = "yes" ]; then
+  if [ -d "/etc/nginx/vhosts.d" ]; then
+    cat <<EOF >"/etc/nginx/vhosts.d/$CLOUDFLARE_DOMAIN.conf"
+server {
+    listen                                  80;
+    listen                                  [::]:80;
+    server_name                             $SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE *.$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE;
+    access_log                              /var/log/nginx/access.$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE.log;
+    error_log                               /var/log/nginx/error.$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE.log info;
+
+  location / {
+    proxy_ssl_verify                        off;
+    send_timeout                            3600;
+    proxy_connect_timeout                   3600;
+    proxy_send_timeout                      3600;
+    proxy_read_timeout                      3600;
+    proxy_http_version                      1.1;
+    proxy_request_buffering                 off;
+    proxy_buffering                         off;
+    proxy_set_header                        Host               $host;
+    proxy_set_header                        X-Real-IP          $remote_addr;
+    proxy_set_header                        X-Forwarded-Proto  $scheme;
+    proxy_set_header                        X-Forwarded-Scheme $scheme;
+    proxy_set_header                        X-Forwarded-For    $remote_addr;
+    proxy_set_header                        X-Forwarded-Port   $server_port;
+    proxy_set_header                        Upgrade            $http_upgrade;
+    proxy_set_header                        Connection         $connection_upgrade;
+    proxy_set_header                        Accept-Encoding "";
+    proxy_pass                              https://$HOSTNAME/;
+    }
+}
+EOF
+  fi
+  unset CLOUDFLARE_DOMAIN
 fi
 ##################################################################################################################
 printf_head "Setting up ssl certificates"
