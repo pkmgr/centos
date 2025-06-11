@@ -798,8 +798,20 @@ printf_head "Installing custom web server files"
 ##################################################################################################################
 [ -d "/tmp/configs" ] && devnull rm_if_exists "/tmp/configs"
 devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
-run_post git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
-run_post git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
+if [ -d "/var/www/html/sysinfo/.git" ]; theb
+  devnull git -C "/var/www/html/sysinfo" reset --hard
+  run_post git -C "/var/www/html/sysinfo" pull -q
+else
+  dev_null rm_if_exists "/var/www/html/sysinfo"
+  run_post git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
+fi
+if [ -d "/var/www/html/vnstat/.git" ]; then
+  devnull git -C "/var/www/html/vnstat" reset --hard
+  run_post git -C "/var/www/html/vnstat" pull -q
+else
+  dev_null rm_if_exists "/var/www/html/vnstat" 
+  run_post git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
+fi
 run_post_message="Installing default server files" run_post sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs "https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh")"
 [ -f "/etc/httpd/modules/mod_wsgi_python3.so" ] && ln -sf /etc/httpd/modules/mod_wsgi_python3.so /etc/httpd/modules/mod_wsgi.so
 ##################################################################################################################
@@ -972,18 +984,19 @@ devnull timedatectl set-ntp true
 ##################################################################################################################
 printf_head "Configuring cloudflare dns for $SET_HOSTNAME"
 ##################################################################################################################
+CLOUDFLARE_PROXY="${CLOUDFLARE_PROXY:-false}" 
 if [ -f "$HOME/.config/secure/cloudflare.txt" ]; then
   . "$HOME/.config/secure/cloudflare.txt"
   CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-internal2.me}"
   if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
     if [ -n "$(type -P "cloudflare")" ]; then
-      if devnull cloudflare update $SET_HOSTNAME --proxy true; then
+      if devnull cloudflare update $SET_HOSTNAME --proxy $CLOUDFLARE_PROXY; then
         CLOUDFLARE_DOMAIN="yes"
-        devnull cloudflare update "*.$SET_HOSTNAME" --proxy true
+        devnull cloudflare update "*.$SET_HOSTNAME" --proxy $CLOUDFLARE_PROXY
         printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
-      elif devnull cloudflare create $SET_HOSTNAME --proxy true; then
+      elif devnull cloudflare create $SET_HOSTNAME --proxy $CLOUDFLARE_PROXY ; then
         CLOUDFLARE_DOMAIN="yes"
-        devnull cloudflare create "*.$SET_HOSTNAME" --proxy true
+        devnull cloudflare create "*.$SET_HOSTNAME" --proxy $CLOUDFLARE_PROXY
         printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
       else
         printf_red "Failed to create record $SET_HOSTNAME for zone $CLOUDFLARE_DEFAULT_ZONE"
@@ -993,12 +1006,11 @@ if [ -f "$HOME/.config/secure/cloudflare.txt" ]; then
 else
   printf_yellow "Can no load $HOME/.config/secure/cloudflare.txt"
 fi
-if [ "$CLOUDFLARE_DOMAIN" = "yes" ]; then
+if [ "$CLOUDFLARE_DOMAIN" = "yes" ] && [ "$CLOUDFLARE_PROXY" = "true" ]; then
   if [ -d "/etc/nginx/vhosts.d" ]; then
     cat <<EOF >"/etc/nginx/vhosts.d/$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE.conf"
 server {
     listen                                  80;
-    listen                                  [::]:80;
     server_name                             $SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE *.$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE;
     access_log                              /var/log/nginx/access.$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE.log;
     error_log                               /var/log/nginx/error.$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE.log info;
@@ -1021,7 +1033,7 @@ server {
     proxy_set_header                        Upgrade            \$http_upgrade;
     proxy_set_header                        Connection         \$connection_upgrade;
     proxy_set_header                        Accept-Encoding "";
-    proxy_pass                              https://$HOSTNAME/;
+    proxy_pass                              https://$HOSTNAME;
     }
 }
 EOF
