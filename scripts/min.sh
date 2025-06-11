@@ -798,7 +798,7 @@ printf_head "Installing custom web server files"
 ##################################################################################################################
 [ -d "/tmp/configs" ] && devnull rm_if_exists "/tmp/configs"
 devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
-if [ -d "/var/www/html/sysinfo/.git" ]; theb
+if [ -d "/var/www/html/sysinfo/.git" ]; then
   devnull git -C "/var/www/html/sysinfo" reset --hard
   run_post git -C "/var/www/html/sysinfo" pull -q
 else
