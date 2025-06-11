@@ -245,7 +245,7 @@ disable_selinux() {
       sed -i 's|SELINUX=.*|SELINUX=disabled|g' "/etc/selinux/config"
     else
       mkdir -p "/etc/selinux"
-      cat <<EOF | tee "/etc/selinux/config" &>/dev/null
+      cat <<EOF | tee "/etc/selinux/config" >/dev/null
 #
 SELINUX=disabled
 SELINUXTYPE=targeted
@@ -802,14 +802,14 @@ if [ -d "/var/www/html/sysinfo/.git" ]; then
   devnull git -C "/var/www/html/sysinfo" reset --hard
   run_post git -C "/var/www/html/sysinfo" pull -q
 else
-  dev_null rm_if_exists "/var/www/html/sysinfo"
+  devnull rm_if_exists "/var/www/html/sysinfo"
   run_post git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
 fi
 if [ -d "/var/www/html/vnstat/.git" ]; then
   devnull git -C "/var/www/html/vnstat" reset --hard
   run_post git -C "/var/www/html/vnstat" pull -q
 else
-  dev_null rm_if_exists "/var/www/html/vnstat" 
+  devnull rm_if_exists "/var/www/html/vnstat" 
   run_post git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
 fi
 run_post_message="Installing default server files" run_post sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs "https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh")"
