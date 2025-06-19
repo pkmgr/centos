@@ -177,6 +177,18 @@ system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && exe
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 does_user_exist() { grep -qs "^$1:" "/etc/passwd" || return 1; }
 does_group_exist() { grep -qs "^$1:" "/etc/group" || return 1; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__get_www_user() {
+  local user=""
+  user="$(grep -sh "www-data" "/etc/passwd" || grep -sh "apache" "/etc/passwd" || grep -sh "nginx" "/etc/passwd")"
+  [ -n "$user" ] && echo "$user" | awk -F ':' '{print $1}' || return 9
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__get_www_group() {
+  local group=""
+  group="$(grep -sh "www-data" "/etc/group" || grep -sh "apache" "/etc/group" || grep -sh "nginx" "/etc/group")"
+  [ -n "$group" ] && echo "$group" | awk -F ':' '{print $1}' || return 9
+}
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 copy_ca_certs() {
   if [ ! -d "/etc/letsencrypt/live/domain" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
@@ -870,7 +882,8 @@ myhostnameshort="$SET_HOSTNAME"
 myserverdomainname="$(hostname -f)"
 NETDEV="$(ip route | grep 'default' | sed -e "s/^.*dev.//" -e "s/.proto.*//")"
 does_lo_have_ipv6="$(ifconfig lo | grep 'inet6' | grep -q '::1' && echo yes || false)"
-GET_WEB_USER="$(grep -REi 'apache|httpd|www-data|nginx' /etc/passwd | head -n1 | cut -d: -f1 || false)"
+GET_WEB_USER="$(__get_www_user)"
+GET_WEB_GROUP="$(__get_www_group)"
 [ -n "$NETDEV" ] && mycurrentipaddress_6="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v 'docker' | grep inet6 | grep -i 'global' | awk '{print $2}' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -Ev '^::1|^$' | grep ':.*:' | head -n1 | grep '^' || echo '::1')"
 [ -n "$NETDEV" ] && mycurrentipaddress_4="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v '127.0.0.' | grep inet | grep -v 'inet6' | awk '{print $2}' | sed 's#addr:##g' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -vE '|127\.0\.0|172\.17\.0|:.*:|^$' | head -n1 | grep '[0-9]\.[0-9]' || echo '127.0.0.1')"
 devnull find $CONFIG_TEMP_DIR -type f -iname "*.sh" -exec chmod 755 {} \;
@@ -893,9 +906,6 @@ devnull sed -i "s#mydomain#$set_domainname#g" /etc/sysconfig/network
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
-if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
-  does_user_exist "$GET_WEB_USER" && devnull chown -Rf $GET_WEB_USER:$GET_WEB_USER "/var/www" "/usr/local/share/httpd"
-fi
 if [ -z "$IS_INSTALLED_BIND" ]; then
   does_user_exist 'named' && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
 fi
@@ -925,6 +935,8 @@ devnull systemctl daemon-reload
 ##################################################################################################################
 printf_head "Installing incus"
 ##################################################################################################################
+incus_setup_failed="no"
+incus_setup_message="Initializing incus has failed"
 exclude_packages="--exclude=qemu*-9*"
 devnull crb enable
 devnull yum clean packages
@@ -939,11 +951,6 @@ install_pkg incus
 install_pkg incus-tools
 install_pkg incus-selinux
 unset exclude_packages
-##################################################################################################################
-printf_head "Initializing incus"
-##################################################################################################################
-incus_setup_failed="no"
-incus_setup_message="Initializing incus has failed"
 [ -n "$(type -p setupmgr)" ] && setupmgr incus
 echo "0:1000000:1000000000" | tee /etc/subuid /etc/subgid >/dev/null
 if system_service_exists "incus"; then
@@ -1196,6 +1203,22 @@ if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
     fi
   fi
 fi
+if [ -n "$GET_WEB_USER" ]; then
+  [ -f "/etc/nginx/nginx.conf" ] && sed -i "s|user  apache|user  $GET_WEB_USER|g" "/etc/nginx/nginx.conf"
+  [ -f "/etc/httpd/conf/httpd.conf" ] && sed -i "s|User apache|User $GET_WEB_USER|g" "/etc/httpd/conf/httpd.conf"
+  [ -f "/etc/php-fpm.d/www.conf" ] && sed -i "s|user = apache|user = $GET_WEB_USER|g" "/etc/php-fpm.d/www.conf"
+  for apache_dir in "/var/www/mrtg" "/usr/local/share/httpd" "/var/www"; do
+    [ -d "$apache_dir" ] && chown -Rf $GET_WEB_USER "$apache_dir"
+  done
+fi
+if [ -n "$GET_WEB_GROUP" ]; then
+  [ -f "/etc/php-fpm.d/www.conf" ] && sed -i "s|group = apache|group = $GET_WEB_GROUP|g" "/etc/php-fpm.d/www.conf"
+  [ -f "/etc/httpd/conf/httpd.conf" ] && sed -i "s|Group apache|Group $GET_WEB_GROUP|g" "/etc/httpd/conf/httpd.conf"
+  for apache_dir in "/var/www/mrtg" "/usr/local/share/httpd" "/var/www"; do
+    [ -d "$apache_dir" ] && chgroup -Rf $GET_WEB_GROUP "$apache_dir"
+  done
+fi
+[ -f "/etc/httpd/conf/httpd.conf" ] && sed -i 's|ServerTokens. *|ServerTokens Prod|g' "/etc/httpd/conf/httpd.conf"
 ##################################################################################################################
 printf_head "Setting up the reverse proxy for cockpit"
 ##################################################################################################################
@@ -1276,6 +1299,7 @@ fi
 [ -f "$HOME/.profile" ] && . "$HOME/.profile"
 ##################################################################################################################
 if [ "$SYSTEM_TYPE" = "vpn" ]; then
+  printf_head "Disabling services: httpd,nginx"
   system_service_disable httpd
   system_service_disable nginx
 fi
@@ -1341,7 +1365,6 @@ find "/etc" "/usr" "/var" -iname '*.rpmnew' -exec rm -Rf {} \; >/dev/null 2>&1
 find "/etc" "/usr" "/var" -iname '*.rpmsave' -exec rm -Rf {} \; >/dev/null 2>&1
 devnull rm -Rf /tmp/*.tar "/tmp/dotfiles" "$CONFIG_TEMP_DIR"
 devnull retrieve_repo_file
-chown -Rf apache:apache "/var/www" 2>/dev/null
 history -c && history -w
 ##################################################################################################################
 printf_head "Installer version: $(retrieve_version_file)"
