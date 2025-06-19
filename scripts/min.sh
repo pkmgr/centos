@@ -1203,17 +1203,20 @@ if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
     fi
   fi
 fi
+if [ -f "/etc/httpd/conf/httpd.conf" ]; then
+  sed -i 's|ServerTokens. *|ServerTokens Prod|g' "/etc/httpd/conf/httpd.conf"
+fi
 if [ -n "$GET_WEB_USER" ]; then
   if [ -f "/etc/nginx/nginx.conf" ]; then
     sed -i '0,/user .*/s//user  '$GET_WEB_USER';/' "/etc/nginx/nginx.conf"
     grep -sqh "user  $GET_WEB_USER" "/etc/nginx/nginx.conf" || echo "Failed to change the user in /etc/nginx/nginx.conf"
   fi
   if [ -f "/etc/php-fpm.d/www.conf" ]; then
-    sed -i '0,/user .*/s//user = '$GET_WEB_USER';/' "/etc/php-fpm.d/www.conf"
+    sed -i '0,/user .*/s//user = '$GET_WEB_USER'/' "/etc/php-fpm.d/www.conf"
     grep -sqh "user = $GET_WEB_USER" "/etc/php-fpm.d/www.conf" || echo "Failed to change the user in /etc/php-fpm.d/www.conf"
   fi
   if [ -f "/etc/httpd/conf/httpd.conf" ]; then
-    sed -i '0,/User .*/s//User '$GET_WEB_USER';/' "/etc/httpd/conf/httpd.conf"
+    sed -i '0,/User .*/s//User '$GET_WEB_USER'/' "/etc/httpd/conf/httpd.conf"
     grep -sqh "User $GET_WEB_USER" "/etc/httpd/conf/httpd.conf" || echo "Failed to change the user in /etc/httpd/conf/httpd.conf"
   fi
   for apache_dir in "/usr/local/share/httpd" "/var/www"; do
@@ -1222,18 +1225,17 @@ if [ -n "$GET_WEB_USER" ]; then
 fi
 if [ -n "$GET_WEB_GROUP" ]; then
   if [ -f "/etc/php-fpm.d/www.conf" ]; then
-    sed -i '0,/group .*/s//group = '$GET_WEB_GROUP';/' "/etc/php-fpm.d/www.conf"
+    sed -i '0,/group .*/s//group = '$GET_WEB_GROUP'/' "/etc/php-fpm.d/www.conf"
     grep -sqh "group = $GET_WEB_GROUP" "/etc/php-fpm.d/www.conf" || echo "Failed to change the group in /etc/php-fpm.d/www.conf"
   fi
   if [ -f "/etc/httpd/conf/httpd.conf" ]; then
-    sed -i '0,/Group .*/s//Group '$GET_WEB_GROUP';/' "/etc/httpd/conf/httpd.conf"
+    sed -i '0,/Group .*/s//Group '$GET_WEB_GROUP'/' "/etc/httpd/conf/httpd.conf"
     grep -sqh "Group $GET_WEB_GROUP" "/etc/httpd/conf/httpd.conf" || echo "Failed to change the group in /etc/httpd/conf/httpd.conf"
   fi
   for apache_dir in "/usr/local/share/httpd" "/var/www"; do
     [ -d "$apache_dir" ] && chgrp -Rf $GET_WEB_GROUP "$apache_dir"
   done
 fi
-[ -f "/etc/httpd/conf/httpd.conf" ] && sed -i 's|ServerTokens. *|ServerTokens Prod|g' "/etc/httpd/conf/httpd.conf"
 ##################################################################################################################
 printf_head "Setting up the reverse proxy for cockpit"
 ##################################################################################################################
