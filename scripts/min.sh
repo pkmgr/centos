@@ -28,6 +28,7 @@ VERSION="202211071239-git"
 USER="${SUDO_USER:-${USER}}"
 HOME="${USER_HOME:-${HOME}}"
 SRC_DIR="${BASH_SOURCE%/*}"
+CONFIG_TEMP_DIR="${TMPDIR:-/tmp}/minConfigFiles"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set bash options
 if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
@@ -796,8 +797,8 @@ run_grub
 ##################################################################################################################
 printf_head "Installing custom web server files"
 ##################################################################################################################
-[ -d "/tmp/configs" ] && devnull rm_if_exists "/tmp/configs"
-devnull git clone -q "https://github.com/casjay-base/centos" "/tmp/configs"
+[ -d "$CONFIG_TEMP_DIR" ] && devnull rm_if_exists "$CONFIG_TEMP_DIR"
+devnull git clone -q "https://github.com/casjay-base/centos" "$CONFIG_TEMP_DIR"
 if [ -d "/var/www/html/sysinfo/.git" ]; then
   devnull git -C "/var/www/html/sysinfo" reset --hard
   run_post git -C "/var/www/html/sysinfo" pull -q
@@ -809,7 +810,7 @@ if [ -d "/var/www/html/vnstat/.git" ]; then
   devnull git -C "/var/www/html/vnstat" reset --hard
   run_post git -C "/var/www/html/vnstat" pull -q
 else
-  devnull rm_if_exists "/var/www/html/vnstat" 
+  devnull rm_if_exists "/var/www/html/vnstat"
   run_post git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
 fi
 run_post_message="Installing default server files" run_post sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs "https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh")"
@@ -818,45 +819,45 @@ run_post_message="Installing default server files" run_post sudo -HE STATICSITE=
 printf_head "Deleting files"
 ##################################################################################################################
 if system_service_active named || port_in_use "53"; then
-  devnull rm_if_exists /tmp/configs/etc/named*
-  devnull rm_if_exists /tmp/configs/var/named*
+  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/named*
+  devnull rm_if_exists $CONFIG_TEMP_DIR/var/named*
 else
   devnull rm_if_exists /etc/named* /var/named/*
 fi
 if [ -z "$(type -p ntp || type -p ntpd || type -p ntpq)" ]; then
   IS_INSTALLED_NTP=no
   devnull rm_if_exists /etc/ntp*
-  devnull rm_if_exists /tmp/configs/etc/ntp*
+  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/ntp*
 fi
 if [ -z "$(type -p chronyd)" ]; then
   IS_INSTALLED_CHRONY=no
   devnull rm_if_exists /etc/chrony*
-  devnull rm_if_exists /tmp/configs/etc/chrony*
+  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/chrony*
 fi
 if [ -z "$(type -P httpd)" ]; then
   IS_INSTALLED_HTTPD=no
   devnull rm_if_exists /etc/httpd*
-  devnull rm_if_exists /tmp/configs/etc/httpd*
+  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/httpd*
 fi
 if [ -z "$(type -P nginx)" ]; then
   IS_INSTALLED_NGINX=no
   devnull rm_if_exists /etc/nginx*
-  devnull rm_if_exists /tmp/configs/etc/nginx*
+  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/nginx*
 fi
 if [ -z "$(type -P named)" ]; then
   IS_INSTALLED_BIND=no
   devnull rm_if_exists /etc/named*
   devnull rm_if_exists /var/named*
-  devnull rm_if_exists /tmp/configs/etc/named*
-  devnull rm_if_exists /tmp/configs/var/named*
+  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/named*
+  devnull rm_if_exists $CONFIG_TEMP_DIR/var/named*
 fi
 if [ -z "$(type -P proftpd)" ]; then
   IS_INSTALLED_PROFTPD=no
   devnull rm_if_exists /etc/proftpd*
-  devnull rm_if_exists /tmp/configs/etc/proftpd*
+  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/proftpd*
 fi
 if [ -f "/etc/certbot/dns.conf" ]; then
-  devnull rm_if_exists "/tmp/configs/etc/certbot/dns.conf"
+  devnull rm_if_exists "$CONFIG_TEMP_DIR/etc/certbot/dns.conf"
 fi
 for rm_file in /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf; do
   run_post devnull rm_if_exists "$rm_file"
@@ -872,21 +873,21 @@ does_lo_have_ipv6="$(ifconfig lo | grep 'inet6' | grep -q '::1' && echo yes || f
 GET_WEB_USER="$(grep -REi 'apache|httpd|www-data|nginx' /etc/passwd | head -n1 | cut -d: -f1 || false)"
 [ -n "$NETDEV" ] && mycurrentipaddress_6="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v 'docker' | grep inet6 | grep -i 'global' | awk '{print $2}' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -Ev '^::1|^$' | grep ':.*:' | head -n1 | grep '^' || echo '::1')"
 [ -n "$NETDEV" ] && mycurrentipaddress_4="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v '127.0.0.' | grep inet | grep -v 'inet6' | awk '{print $2}' | sed 's#addr:##g' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -vE '|127\.0\.0|172\.17\.0|:.*:|^$' | head -n1 | grep '[0-9]\.[0-9]' || echo '127.0.0.1')"
-devnull find /tmp/configs -type f -iname "*.sh" -exec chmod 755 {} \;
-devnull find /tmp/configs -type f -iname "*.pl" -exec chmod 755 {} \;
-devnull find /tmp/configs -type f -iname "*.cgi" -exec chmod 755 {} \;
-devnull find /tmp/configs -type f -iname ".gitkeep" -exec rm -Rf {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#mydomainname#$set_domainname#g" {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#myhostnameshort#$myhostnameshort#g" {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#myserverdomainname#$myserverdomainname#g" {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \;
-devnull find /tmp/configs -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \;
-[ -n "$NETDEV" ] && devnull find -L /tmp/configs -type f -exec sed -i "s#mynetworkdevice#$NETDEV#g" {} \; || devnull find -L /tmp/configs -type f -exec sed -i "s#mynetworkdevice#eth0#g" {} \;
+devnull find $CONFIG_TEMP_DIR -type f -iname "*.sh" -exec chmod 755 {} \;
+devnull find $CONFIG_TEMP_DIR -type f -iname "*.pl" -exec chmod 755 {} \;
+devnull find $CONFIG_TEMP_DIR -type f -iname "*.cgi" -exec chmod 755 {} \;
+devnull find $CONFIG_TEMP_DIR -type f -iname ".gitkeep" -exec rm -Rf {} \;
+devnull find $CONFIG_TEMP_DIR -type f -exec sed -i "s#mydomainname#$set_domainname#g" {} \;
+devnull find $CONFIG_TEMP_DIR -type f -exec sed -i "s#myhostnameshort#$myhostnameshort#g" {} \;
+devnull find $CONFIG_TEMP_DIR -type f -exec sed -i "s#myserverdomainname#$myserverdomainname#g" {} \;
+devnull find $CONFIG_TEMP_DIR -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \;
+devnull find $CONFIG_TEMP_DIR -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \;
+[ -n "$NETDEV" ] && devnull find -L $CONFIG_TEMP_DIR -type f -exec sed -i "s#mynetworkdevice#$NETDEV#g" {} \; || devnull find -L $CONFIG_TEMP_DIR -type f -exec sed -i "s#mynetworkdevice#eth0#g" {} \;
 [ -n "$NETDEV" ] && [ -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" ] && devnull mv -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" "/etc/sysconfig/network-scripts/ifcfg-$NETDEV.sample"
-[ -n "$does_lo_have_ipv6" ] || sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' /tmp/configs/etc/postfix/main.cf
-devnull rm_if_exists /tmp/configs/etc/{fail2ban,shorewall,shorewall6}
+[ -n "$does_lo_have_ipv6" ] || sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' $CONFIG_TEMP_DIR/etc/postfix/main.cf
+devnull rm_if_exists $CONFIG_TEMP_DIR/etc/{fail2ban,shorewall,shorewall6}
 devnull mkdir -p /etc/rsync.d /var/log/named
-devnull rsync -avhP /tmp/configs/{etc,root,usr,var}* /
+devnull rsync -avhP $CONFIG_TEMP_DIR/{etc,root,usr,var}* /
 devnull sed -i "s#myserverdomainname#$HOSTNAME#g" /etc/sysconfig/network
 devnull sed -i "s#mydomain#$set_domainname#g" /etc/sysconfig/network
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
@@ -984,7 +985,7 @@ devnull timedatectl set-ntp true
 ##################################################################################################################
 printf_head "Configuring cloudflare dns for $SET_HOSTNAME"
 ##################################################################################################################
-CLOUDFLARE_PROXY="${CLOUDFLARE_PROXY:-false}" 
+CLOUDFLARE_PROXY="${CLOUDFLARE_PROXY:-false}"
 if [ -f "$HOME/.config/secure/cloudflare.txt" ]; then
   . "$HOME/.config/secure/cloudflare.txt"
   CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-internal2.me}"
@@ -994,7 +995,7 @@ if [ -f "$HOME/.config/secure/cloudflare.txt" ]; then
         CLOUDFLARE_DOMAIN="yes"
         devnull cloudflare update "*.$SET_HOSTNAME" --proxy $CLOUDFLARE_PROXY
         printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
-      elif devnull cloudflare create $SET_HOSTNAME --proxy $CLOUDFLARE_PROXY ; then
+      elif devnull cloudflare create $SET_HOSTNAME --proxy $CLOUDFLARE_PROXY; then
         CLOUDFLARE_DOMAIN="yes"
         devnull cloudflare create "*.$SET_HOSTNAME" --proxy $CLOUDFLARE_PROXY
         printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
@@ -1338,7 +1339,7 @@ printf_head "Cleaning up"
 [ -f "/etc/yum/pluginconf.d/subscription-manager.conf" ] && echo "" >"/etc/yum/pluginconf.d/subscription-manager.conf"
 find "/etc" "/usr" "/var" -iname '*.rpmnew' -exec rm -Rf {} \; >/dev/null 2>&1
 find "/etc" "/usr" "/var" -iname '*.rpmsave' -exec rm -Rf {} \; >/dev/null 2>&1
-devnull rm -Rf /tmp/*.tar /tmp/dotfiles /tmp/configs
+devnull rm -Rf /tmp/*.tar "/tmp/dotfiles" "$CONFIG_TEMP_DIR"
 devnull retrieve_repo_file
 chown -Rf apache:apache "/var/www" 2>/dev/null
 history -c && history -w
