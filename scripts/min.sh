@@ -1215,7 +1215,7 @@ if [ -n "$GET_WEB_GROUP" ]; then
   [ -f "/etc/php-fpm.d/www.conf" ] && sed -i "s|group = apache|group = $GET_WEB_GROUP|g" "/etc/php-fpm.d/www.conf"
   [ -f "/etc/httpd/conf/httpd.conf" ] && sed -i "s|Group apache|Group $GET_WEB_GROUP|g" "/etc/httpd/conf/httpd.conf"
   for apache_dir in "/var/www/mrtg" "/usr/local/share/httpd" "/var/www"; do
-    [ -d "$apache_dir" ] && chgroup -Rf $GET_WEB_GROUP "$apache_dir"
+    [ -d "$apache_dir" ] && chgrp -Rf $GET_WEB_GROUP "$apache_dir"
   done
 fi
 [ -f "/etc/httpd/conf/httpd.conf" ] && sed -i 's|ServerTokens. *|ServerTokens Prod|g' "/etc/httpd/conf/httpd.conf"
