@@ -1209,7 +1209,7 @@ if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
   fi
 fi
 if [ -f "/etc/httpd/conf/httpd.conf" ]; then
-  sed -i 's|ServerTokens. *|ServerTokens Prod|g' "/etc/httpd/conf/httpd.conf"
+  sed -i 's|ServerTokens .*|ServerTokens Prod|g' "/etc/httpd/conf/httpd.conf"
 fi
 if [ -n "$GET_WEB_USER" ]; then
   if [ -f "/etc/nginx/nginx.conf" ]; then
