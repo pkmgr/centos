@@ -4,11 +4,11 @@
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  WTFPL
-# @@ReadME           :  min.oci.sh --help
+# @@ReadME           :  min.sh --help
 # @@Copyright        :  Copyright: (c) 2022 Jason Hempstead, Casjays Developments
 # @@Created          :  Monday, Nov 07, 2022 12:39 EST
-# @@File             :  min.oci.sh
-# @@Description      :  Script to setup min.oci for CentOS/AlmaLinux/RockyLinux
+# @@File             :  min.sh
+# @@Description      :  Script to setup min for CentOS/AlmaLinux/RockyLinux
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
 # @@Other            :
@@ -1168,7 +1168,7 @@ does_user_exist 'munin' && chown -Rf "munin" "/var/log/munin"
 does_group_exist "munin" && chgrp -Rf "munin" "/var/log/munin"
 does_user_exist 'munin-node' && chown -Rf "munin" "/var/log/munin-node"
 does_group_exist "munin-node" && chgrp -Rf "munin" "/var/log/munin-node"
-bash -c "$(munin-node-configure --remove-also --shell >/dev/null 2>&1)"
+run_post "munin-node-configure --remove-also --shell" >/dev/null 2>/dev/null
 ##################################################################################################################
 printf_head "Setting up tor"
 ##################################################################################################################
@@ -1299,8 +1299,8 @@ mkdir -p "/mnt/backups" "/var/www/html/.well-known" "/etc/letsencrypt/live"
 echo "" >>/etc/fstab
 if [ -n "$IS_NETWORK_INTERNAL" ] && devnull ping -q -W 1 -c 2 -t 1 10.0.254.1; then
   echo "10.0.254.1:/mnt/Volume_1/backups         /mnt/backups                 nfs defaults,rw 0 0" >>/etc/fstab
-  echo "10.0.254.1:/var/www/html/.well-known     /var/www/html/.well-known    nfs defaults,rw 0 0" >>/etc/fstab
   echo "10.0.254.1:/etc/letsencrypt              /etc/letsencrypt             nfs defaults,rw 0 0" >>/etc/fstab
+  echo "10.0.254.1:/var/www/html/.well-known     /var/www/html/.well-known    nfs defaults,rw 0 0" >>/etc/fstab
 fi
 mount -a
 ##################################################################################################################
