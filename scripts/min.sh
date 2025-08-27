@@ -755,6 +755,7 @@ install_pkg php-pgsql
 install_pkg php-xml
 install_pkg pinentry
 install_pkg postfix
+install_pkg postfix-pcre
 install_pkg python3-certbot-dns-rfc2136
 install_pkg python3-configargparse
 install_pkg python3-cryptography
