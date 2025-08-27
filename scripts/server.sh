@@ -891,18 +891,24 @@ GET_WEB_USER="$(__get_www_user)"
 GET_WEB_GROUP="$(__get_www_group)"
 [ -n "$NETDEV" ] && mycurrentipaddress_6="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v 'docker' | grep inet6 | grep -i 'global' | awk '{print $2}' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -Ev '^::1|^$' | grep ':.*:' | head -n1 | grep '^' || echo '::1')"
 [ -n "$NETDEV" ] && mycurrentipaddress_4="$(ifconfig $NETDEV | grep -E 'venet|inet' | grep -v '127.0.0.' | grep inet | grep -v 'inet6' | awk '{print $2}' | sed 's#addr:##g' | head -n1 | grep '^' || hostname -I | tr ' ' '\n' | grep -vE '|127\.0\.0|172\.17\.0|:.*:|^$' | head -n1 | grep '[0-9]\.[0-9]' || echo '127.0.0.1')"
-devnull find $CONFIG_TEMP_DIR -type f -iname "*.sh" -exec chmod 755 {} \;
-devnull find $CONFIG_TEMP_DIR -type f -iname "*.pl" -exec chmod 755 {} \;
-devnull find $CONFIG_TEMP_DIR -type f -iname "*.cgi" -exec chmod 755 {} \;
-devnull find $CONFIG_TEMP_DIR -type f -iname ".gitkeep" -exec rm -Rf {} \;
-devnull find $CONFIG_TEMP_DIR -type f -exec sed -i "s#mydomainname#$set_domainname#g" {} \;
-devnull find $CONFIG_TEMP_DIR -type f -exec sed -i "s#myhostnameshort#$myhostnameshort#g" {} \;
-devnull find $CONFIG_TEMP_DIR -type f -exec sed -i "s#myserverdomainname#$myserverdomainname#g" {} \;
-devnull find $CONFIG_TEMP_DIR -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \;
-devnull find $CONFIG_TEMP_DIR -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \;
-[ -n "$NETDEV" ] && devnull find -L $CONFIG_TEMP_DIR -type f -exec sed -i "s#mynetworkdevice#$NETDEV#g" {} \; || devnull find -L $CONFIG_TEMP_DIR -type f -exec sed -i "s#mynetworkdevice#eth0#g" {} \;
-[ -n "$NETDEV" ] && [ -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" ] && devnull mv -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" "/etc/sysconfig/network-scripts/ifcfg-$NETDEV.sample"
-[ -n "$does_lo_have_ipv6" ] || sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' $CONFIG_TEMP_DIR/etc/postfix/main.cf
+devnull find "$CONFIG_TEMP_DIR" -type f -iname "*.sh" -exec chmod 755 {} \;
+devnull find "$CONFIG_TEMP_DIR" -type f -iname "*.pl" -exec chmod 755 {} \;
+devnull find "$CONFIG_TEMP_DIR" -type f -iname "*.cgi" -exec chmod 755 {} \;
+devnull find "$CONFIG_TEMP_DIR" -type f -iname ".gitkeep" -exec rm -Rf {} \;
+devnull find "$CONFIG_TEMP_DIR" -type f -exec sed -i "s#mydomainname#$set_domainname#g" {} \;
+devnull find "$CONFIG_TEMP_DIR" -type f -exec sed -i "s#myhostnameshort#$myhostnameshort#g" {} \;
+devnull find "$CONFIG_TEMP_DIR" -type f -exec sed -i "s#myserverdomainname#$myserverdomainname#g" {} \;
+devnull find "$CONFIG_TEMP_DIR" -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \;
+devnull find "$CONFIG_TEMP_DIR" -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \;
+if [ -n "$NETDEV" ]; then
+  devnull find -L $CONFIG_TEMP_DIR -type f -exec sed -i "s#mynetworkdevice#$NETDEV#g" {} \; || devnull find -L $CONFIG_TEMP_DIR -type f -exec sed -i "s#mynetworkdevice#eth0#g" {} \;
+  if [ -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" ]; then
+    devnull mv -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" "/etc/sysconfig/network-scripts/ifcfg-$NETDEV.sample"
+  fi
+fi
+if [ -z "$does_lo_have_ipv6" ]; then
+  sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' $CONFIG_TEMP_DIR/etc/postfix/main.cf
+fi
 devnull rm_if_exists $CONFIG_TEMP_DIR/etc/{fail2ban,shorewall,shorewall6}
 devnull mkdir -p /etc/rsync.d /var/log/named
 devnull rsync -avhP $CONFIG_TEMP_DIR/{etc,root,usr,var}* /
@@ -912,7 +918,10 @@ devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
 if [ -z "$IS_INSTALLED_BIND" ]; then
-  does_user_exist 'named' && devnull mkdir -p /etc/named /var/named /var/log/named && devnull chown -Rf named:named /etc/named* /var/named /var/log/named
+  if does_user_exist 'named'; then
+    devnull mkdir -p /etc/named /var/named /var/log/named
+    devnull chown -Rf named:named /etc/named* /var/named /var/log/named
+  fi
 fi
 if [ -z "$(type -P postfix)" ]; then
   rm_if_exists /etc/postfix
@@ -929,7 +938,6 @@ else
   devnull chmod g+s /usr/sbin/postdrop
   devnull killall -9 postdrop
   devnull postfix set-permissions create-missing
-  unset postfix_proto
   devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
   devnull newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 fi
@@ -937,6 +945,7 @@ if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
   echo "kernel.domainname=$set_domainname" >>/etc/sysctl.conf
 fi
 devnull systemctl daemon-reload
+unset postfix_proto
 ##################################################################################################################
 printf_head "Installing incus"
 ##################################################################################################################
