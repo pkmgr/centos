@@ -29,88 +29,89 @@ USER="${SUDO_USER:-${USER}}"
 HOME="${USER_HOME:-${HOME}}"
 SRC_DIR="${BASH_SOURCE%/*}"
 CONFIG_TEMP_DIR="${TMPDIR:-/tmp}/minConfigFiles"
+FORCE_INSTALL="${FORCE_INSTALL:-no}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set bash options
 if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ ! -d "/etc/casjaysdev" ]; then
-  if yum makecache && yum update -yy; then
-    echo "Rebooting your system: Please rerun this script after reboot"
-    mkdir -p "/etc/casjaysdev"
-    sleep 20 && reboot
-  fi
+	if yum makecache && yum update -yy; then
+		echo "Rebooting your system: Please rerun this script after reboot"
+		mkdir -p "/etc/casjaysdev"
+		sleep 20 && reboot
+	fi
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ -z "$(type -P ifconfig)" ] && [ -z "$(type -P hostname)" ]; then
-  echo "Installing net-tools package"
-  yum install -yy net-tools -q
+	echo "Installing net-tools package"
+	yum install -yy net-tools -q
 fi
 for pkg in sudo git curl wget; do
-  command -v $pkg &>/dev/null || { echo "Installing $pkg" && yum install -yy -q $pkg &>/dev/null || exit 1; } || { echo "Failed to install $pkg" && exit 1; }
+	command -v $pkg &>/dev/null || { echo "Installing $pkg" && yum install -yy -q $pkg &>/dev/null || exit 1; } || { echo "Failed to install $pkg" && exit 1; }
 done
 unset pkg
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 read -t 30 -p "Enter your full hostname: (default: $HOSTNAME) " set_hostname
 set_hostname="${set_hostname:-$(hostname -f | grep '^' || echo "$HOSTNAME")}"
 if [ -n "$set_hostname" ]; then
-  hostnamectl set-hostname $set_hostname && echo "$set_hostname" >/etc/hostname || false
-  [ $? -eq 0 ] && [ -n "$(type -P hostname)" ] && hostname -F /etc/hostname
-  MY_HOST_NAME="$set_hostname"
-  unset set_hostname
+	hostnamectl set-hostname $set_hostname && echo "$set_hostname" >/etc/hostname || false
+	[ $? -eq 0 ] && [ -n "$(type -P hostname)" ] && hostname -F /etc/hostname
+	MY_HOST_NAME="$set_hostname"
+	unset set_hostname
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ -n "$(type systemd-ask-password)" ]; then
-  root_pass_1="$(systemd-ask-password --emoji=no --echo=masked --timeout=30 "Enter your root password: ")"
-  root_pass_2="$(systemd-ask-password --emoji=no --echo=masked --timeout=30 "Confirm your root password: ")"
+	root_pass_1="$(systemd-ask-password --emoji=no --echo=masked --timeout=30 "Enter your root password: ")"
+	root_pass_2="$(systemd-ask-password --emoji=no --echo=masked --timeout=30 "Confirm your root password: ")"
 else
-  stty -echo
-  printf "Enter your root password: " && read -t 30 -s root_pass_1
-  printf '\n'
-  printf "Confirm your root password: " && read -t 30 -s root_pass_2
-  printf '\n'
-  stty echo
+	stty -echo
+	printf "Enter your root password: " && read -t 30 -s root_pass_1
+	printf '\n'
+	printf "Confirm your root password: " && read -t 30 -s root_pass_2
+	printf '\n'
+	stty echo
 fi
 if [ -n "$root_pass_1" ]; then
-  if [ "$root_pass_1" = "$root_pass_2" ]; then
-    echo "$root_pass_1" | passwd --stdin root >/dev/null
-  fi
+	if [ "$root_pass_1" = "$root_pass_2" ]; then
+		echo "$root_pass_1" | passwd --stdin root >/dev/null
+	fi
 fi
 unset root_pass_1 root_pass_2
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ "$(ls -A /var/cache/swaps 2>/dev/null | wc -l)" -eq 0 ]; then
-  SWAP_SIZE="$(swapon --show=SIZE --noheadings | sed 's/[0-9]//g' | head -n1 | grep 'M' || swapon --show=SIZE --noheadings | sed 's/[0-9]//g' | head -n1 | grep 'G' || false)"
-  if [ "$SWAP_SIZE" != "G" ]; then
-    swap_file_size="4096"
-    swap_file="swapFile"
-    swap_dir="/var/cache/swaps"
-    kilobit="2000000"
-    gigabit=$((kilobit / 1000))
-    mem="$(free | grep ':' | awk '{print $2}' | head -n1 | grep '^' || echo "1")"
-    if [ $mem -le $kilobit ] && [ ! -f "$swap_dir/$swap_file" ]; then
-      echo "Setting up swap in $swap_dir/$swap_file"
-      echo "This may take a few minutes so enjoy your coffee"
-      mkdir -p "$swap_dir"
-      if dd if=/dev/zero of=$swap_dir/$swap_file bs=1MB count=$swap_file_size &>/dev/null; then
-        echo "swap size is: ${swap_file_size}MB"
-        chmod 600 $swap_dir/$swap_file
-        mkswap $swap_dir/$swap_file >/dev/null
-        swapon $swap_dir/$swap_file >/dev/null
-        if ! grep -qs "$swap_dir/$swap_file" /etc/fstab; then
-          echo "$swap_dir/$swap_file          swap        swap             defaults          0 0" | tee -a /etc/fstab >/dev/null
-        fi
-      fi
-    fi
-    unset SWAP_SIZE swap_file_size swap_file swap_dir kilobit gigabit mem
-    swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^' && echo "Swap has been enabled"
-    sleep 5
-  fi
+	SWAP_SIZE="$(swapon --show=SIZE --noheadings | sed 's/[0-9]//g' | head -n1 | grep 'M' || swapon --show=SIZE --noheadings | sed 's/[0-9]//g' | head -n1 | grep 'G' || false)"
+	if [ "$SWAP_SIZE" != "G" ]; then
+		swap_file_size="4096"
+		swap_file="swapFile"
+		swap_dir="/var/cache/swaps"
+		kilobit="2000000"
+		gigabit=$((kilobit / 1000))
+		mem="$(free | grep ':' | awk '{print $2}' | head -n1 | grep '^' || echo "1")"
+		if [ $mem -le $kilobit ] && [ ! -f "$swap_dir/$swap_file" ]; then
+			echo "Setting up swap in $swap_dir/$swap_file"
+			echo "This may take a few minutes so enjoy your coffee"
+			mkdir -p "$swap_dir"
+			if dd if=/dev/zero of=$swap_dir/$swap_file bs=1MB count=$swap_file_size &>/dev/null; then
+				echo "swap size is: ${swap_file_size}MB"
+				chmod 600 $swap_dir/$swap_file
+				mkswap $swap_dir/$swap_file >/dev/null
+				swapon $swap_dir/$swap_file >/dev/null
+				if ! grep -qs "$swap_dir/$swap_file" /etc/fstab; then
+					echo "$swap_dir/$swap_file          swap        swap             defaults          0 0" | tee -a /etc/fstab >/dev/null
+				fi
+			fi
+		fi
+		unset SWAP_SIZE swap_file_size swap_file swap_dir kilobit gigabit mem
+		swapon --show 2>/dev/null | grep -v '^NAME ' | grep -q '^' && echo "Swap has been enabled"
+		sleep 5
+	fi
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ ! -d "/usr/local/share/CasjaysDev/scripts" ]; then
-  git clone "https://github.com/casjay-dotfiles/scripts" "/usr/local/share/CasjaysDev/scripts" -q
-  eval "/usr/local/share/CasjaysDev/scripts/install.sh" || { echo "Failed to initialize" && exit 1; }
-  export PATH="/usr/local/share/CasjaysDev/scripts/bin:$PATH"
-  sleep 5
+	git clone "https://github.com/casjay-dotfiles/scripts" "/usr/local/share/CasjaysDev/scripts" -q
+	eval "/usr/local/share/CasjaysDev/scripts/install.sh" || { echo "Failed to initialize" && exit 1; }
+	export PATH="/usr/local/share/CasjaysDev/scripts/bin:$PATH"
+	sleep 5
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set functions
@@ -119,12 +120,12 @@ SCRIPTSFUNCTDIR="${SCRIPTSFUNCTDIR:-/usr/local/share/CasjaysDev/scripts}"
 SCRIPTSFUNCTFILE="${SCRIPTSFUNCTFILE:-system-installer.bash}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ -f "../functions/$SCRIPTSFUNCTFILE" ]; then
-  . "../functions/$SCRIPTSFUNCTFILE"
+	. "../functions/$SCRIPTSFUNCTFILE"
 elif [ -f "$SCRIPTSFUNCTDIR/functions/$SCRIPTSFUNCTFILE" ]; then
-  . "$SCRIPTSFUNCTDIR/functions/$SCRIPTSFUNCTFILE"
+	. "$SCRIPTSFUNCTDIR/functions/$SCRIPTSFUNCTFILE"
 else
-  curl -LSs "$SCRIPTSFUNCTURL/$SCRIPTSFUNCTFILE" -o "/tmp/$SCRIPTSFUNCTFILE" || exit 1
-  . "/tmp/$SCRIPTSFUNCTFILE"
+	curl -LSs "$SCRIPTSFUNCTURL/$SCRIPTSFUNCTFILE" -o "/tmp/$SCRIPTSFUNCTFILE" || exit 1
+	. "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SCRIPT_OS="AlmaLinux"
@@ -147,19 +148,19 @@ BACKUP_DIR="$HOME/Documents/backups/$(date +'%Y/%m/%d')"
 SSH_KEY_LOCATION="${SSH_KEY_LOCATION:-https://github.com/$GITHUB_USER.keys}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^pbx'; then
-  SYSTEM_TYPE="pbx"
+	SYSTEM_TYPE="pbx"
 elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^dns'; then
-  SYSTEM_TYPE="dns"
+	SYSTEM_TYPE="dns"
 elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^vpn'; then
-  SYSTEM_TYPE="vpn"
+	SYSTEM_TYPE="vpn"
 elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^mail'; then
-  SYSTEM_TYPE="mail"
+	SYSTEM_TYPE="mail"
 elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^server'; then
-  SYSTEM_TYPE="server"
+	SYSTEM_TYPE="server"
 elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^sql|^db'; then
-  SYSTEM_TYPE="sql"
+	SYSTEM_TYPE="sql"
 elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^devel|^build|^ci|^testing'; then
-  SYSTEM_TYPE="devel"
+	SYSTEM_TYPE="devel"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SERVICES_ENABLE="cockpit cockpit.socket docker httpd munin-node nginx ntpd php-fpm postfix proftpd rsyslog snmpd sshd uptimed downtimed "
@@ -183,131 +184,131 @@ does_user_exist() { grep -qs "^$1:" "/etc/passwd" || return 1; }
 does_group_exist() { grep -qs "^$1:" "/etc/group" || return 1; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __get_www_user() {
-  local user=""
-  user="$(grep -sh "www-data" "/etc/passwd" || grep -sh "apache" "/etc/passwd" || grep -sh "nginx" "/etc/passwd")"
-  [ -n "$user" ] && echo "$user" | awk -F ':' '{print $1}' || return 9
+	local user=""
+	user="$(grep -sh "www-data" "/etc/passwd" || grep -sh "apache" "/etc/passwd" || grep -sh "nginx" "/etc/passwd")"
+	[ -n "$user" ] && echo "$user" | awk -F ':' '{print $1}' || return 9
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __get_www_group() {
-  local group=""
-  group="$(grep -sh "www-data" "/etc/group" || grep -sh "apache" "/etc/group" || grep -sh "nginx" "/etc/group")"
-  [ -n "$group" ] && echo "$group" | awk -F ':' '{print $1}' || return 9
+	local group=""
+	group="$(grep -sh "www-data" "/etc/group" || grep -sh "apache" "/etc/group" || grep -sh "nginx" "/etc/group")"
+	[ -n "$group" ] && echo "$group" | awk -F ':' '{print $1}' || return 9
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 copy_ca_certs() {
-  if [ ! -d "/etc/letsencrypt/live/domain" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
-    printf_red "letsencrypt seemed to have failed: Installing self-signed certificates"
-    mkdir -p "/etc/letsencrypt/live/domain"
-    [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/letsencrypt/live/domain/cert.pem"
-    [ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/chain.pem"
-    [ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/fullchain.pem"
-    [ -f "/etc/ssl/CA/CasjaysDev/private/localhost.key" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/private/localhost.key" "/etc/letsencrypt/live/domain/privkey.pem"
-    find "/etc/letsencrypt" -type f -exec chmod 664 {} \;
-    find "/etc/letsencrypt" -type d -exec chmod 755 {} \;
-  fi
+	if [ ! -d "/etc/letsencrypt/live/domain" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
+		printf_red "letsencrypt seemed to have failed: Installing self-signed certificates"
+		mkdir -p "/etc/letsencrypt/live/domain"
+		[ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/letsencrypt/live/domain/cert.pem"
+		[ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/chain.pem"
+		[ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/fullchain.pem"
+		[ -f "/etc/ssl/CA/CasjaysDev/private/localhost.key" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/private/localhost.key" "/etc/letsencrypt/live/domain/privkey.pem"
+		find "/etc/letsencrypt" -type f -exec chmod 664 {} \;
+		find "/etc/letsencrypt" -type d -exec chmod 755 {} \;
+	fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __dnf_yum() {
-  local rhel_pkgmgr="" opts="--skip-broken"
-  rhel_pkgmgr="$(builtin type -P dnf || builtin type -P yum || false)"
-  [ "$RELEASE_VER" -lt 8 ] || opts="--allowerasing --nobest --skip-broken"
-  $rhel_pkgmgr $opts "$@"
-  if rpm -q "$pkg" | grep -v 'is not installed' | grep -q '^'; then exitCode=0; else exitCode=1; fi
-  return $?
+	local rhel_pkgmgr="" opts="--skip-broken"
+	rhel_pkgmgr="$(builtin type -P dnf || builtin type -P yum || false)"
+	[ "$RELEASE_VER" -lt 8 ] || opts="--allowerasing --nobest --skip-broken"
+	$rhel_pkgmgr $opts "$@"
+	if rpm -q "$pkg" | grep -v 'is not installed' | grep -q '^'; then exitCode=0; else exitCode=1; fi
+	return $?
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 test_pkg() {
-  for pkg in "$@"; do
-    if rpm -q "$pkg" | grep -v 'is not installed' | grep -q '^'; then
-      printf_blue "[ ✔ ] $pkg is already installed"
-      return 1
-    else
-      return 0
-    fi
-  done
+	for pkg in "$@"; do
+		if rpm -q "$pkg" | grep -v 'is not installed' | grep -q '^'; then
+			printf_blue "[ ✔ ] $pkg is already installed"
+			return 1
+		else
+			return 0
+		fi
+	done
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 remove_pkg() {
-  test_pkg "$*" &>/dev/null || execute "__dnf_yum remove -q -y $*" "Removing: $*"
-  test_pkg "$*" &>/dev/null || return 0
+	test_pkg "$*" &>/dev/null || execute "__dnf_yum remove -q -y $*" "Removing: $*"
+	test_pkg "$*" &>/dev/null || return 0
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 install_pkg() {
-  local statusCode=0
-  excludes="$exclude_packages"
-  if test_pkg "$*"; then
-    execute "__dnf_yum install -q -yy $* $excludes" "Installing: $*"
-    test_pkg "$*" &>/dev/null && statusCode=1 || statusCode=0
-  else
-    statusCode=0
-  fi
-  return $statusCode
+	local statusCode=0
+	excludes="$exclude_packages"
+	if test_pkg "$*"; then
+		execute "__dnf_yum install -q -yy $* $excludes" "Installing: $*"
+		test_pkg "$*" &>/dev/null && statusCode=1 || statusCode=0
+	else
+		statusCode=0
+	fi
+	return $statusCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 detect_selinux() {
-  if [ -f "/etc/selinux/config" ]; then
-    grep -s 'SELINUX=' "/etc/selinux/config" | grep -q 'enabled' || return 1
-  elif [ -f "$(type -P selinuxenabled 2>/dev/null)" ]; then
-    selinuxenabled && return 1 || return 0
-  else
-    return 0
-  fi
+	if [ -f "/etc/selinux/config" ]; then
+		grep -s 'SELINUX=' "/etc/selinux/config" | grep -q 'enabled' || return 1
+	elif [ -f "$(type -P selinuxenabled 2>/dev/null)" ]; then
+		selinuxenabled && return 1 || return 0
+	else
+		return 0
+	fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 disable_selinux() {
-  if detect_selinux; then
-    printf_blue "selinux is now disabled"
-    if [ -f "/etc/selinux/config" ]; then
-      devnull setenforce 0
-      sed -i 's|SELINUX=.*|SELINUX=disabled|g' "/etc/selinux/config"
-    else
-      mkdir -p "/etc/selinux"
-      cat <<EOF | tee "/etc/selinux/config" >/dev/null
+	if detect_selinux; then
+		printf_blue "selinux is now disabled"
+		if [ -f "/etc/selinux/config" ]; then
+			devnull setenforce 0
+			sed -i 's|SELINUX=.*|SELINUX=disabled|g' "/etc/selinux/config"
+		else
+			mkdir -p "/etc/selinux"
+			cat <<EOF | tee "/etc/selinux/config" >/dev/null
 #
 SELINUX=disabled
 SELINUXTYPE=targeted
 
 EOF
-    fi
-  else
-    printf_green "selinux is already disabled"
-  fi
+		fi
+	else
+		printf_green "selinux is already disabled"
+	fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 get_user_ssh_key() {
-  local ssh_key=""
-  local col=${COLUMNS:-120}
-  local col=$(($col - 40))
-  [ -n "$SSH_KEY_LOCATION" ] || return 0
-  [ -d "$HOME/.ssh" ] || mkdir -p "$HOME/.ssh"
-  chmod 700 "$HOME/.ssh"
-  get_keys="$(curl -q -LSsf "$SSH_KEY_LOCATION" 2>/dev/null | grep '^' || false)"
-  if [ -n "$get_keys" ]; then
-    echo "$get_keys" | while read -r key; do
-      key_value="$(echo "$key" | awk -F ' ' '{print $2}')"
-      if grep -qs "$key" "$HOME/.ssh/authorized_keys"; then
-        printf_cyan "Key exists in ~/.ssh/authorized_keys: ${key_value:0:$col}"
-      else
-        echo "$key" | tee -a "/root/.ssh/authorized_keys" &>/dev/null
-        printf_green "Successfully added key: ${key_value:0:$col}"
-      fi
-    done
-  else
-    printf_return "Can not get key from $SSH_KEY_LOCATION"
-    return 1
-  fi
+	local ssh_key=""
+	local col=${COLUMNS:-120}
+	local col=$(($col - 40))
+	[ -n "$SSH_KEY_LOCATION" ] || return 0
+	[ -d "$HOME/.ssh" ] || mkdir -p "$HOME/.ssh"
+	chmod 700 "$HOME/.ssh"
+	get_keys="$(curl -q -LSsf "$SSH_KEY_LOCATION" 2>/dev/null | grep '^' || false)"
+	if [ -n "$get_keys" ]; then
+		echo "$get_keys" | while read -r key; do
+			key_value="$(echo "$key" | awk -F ' ' '{print $2}')"
+			if grep -qs "$key" "$HOME/.ssh/authorized_keys"; then
+				printf_cyan "Key exists in ~/.ssh/authorized_keys: ${key_value:0:$col}"
+			else
+				echo "$key" | tee -a "/root/.ssh/authorized_keys" &>/dev/null
+				printf_green "Successfully added key: ${key_value:0:$col}"
+			fi
+		done
+	else
+		printf_return "Can not get key from $SSH_KEY_LOCATION"
+		return 1
+	fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_init_check() {
-  { printf '%b\n' "${YELLOW}Updating cache and installing epel-release${NC}" && yum makecache &>/dev/null && __dnf_yum install epel-release -yy -q &>/dev/null; } || true
-  if [ -d "/usr/local/share/CasjaysDev/scripts/.git" ]; then
-    git -C /usr/local/share/CasjaysDev/scripts pull -q
-    if [ $? -ne 0 ]; then
-      rm -Rf "/usr/local/share/CasjaysDev/scripts"
-      git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts -q
-    fi
-  fi
-  yum clean all &>/dev/null || true
+	{ printf '%b\n' "${YELLOW}Updating cache and installing epel-release${NC}" && yum makecache &>/dev/null && __dnf_yum install epel-release -yy -q &>/dev/null; } || true
+	if [ -d "/usr/local/share/CasjaysDev/scripts/.git" ]; then
+		git -C /usr/local/share/CasjaysDev/scripts pull -q
+		if [ $? -ne 0 ]; then
+			rm -Rf "/usr/local/share/CasjaysDev/scripts"
+			git clone https://github.com/casjay-dotfiles/scripts /usr/local/share/CasjaysDev/scripts -q
+		fi
+	fi
+	yum clean all &>/dev/null || true
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __yum() { yum "$@" $yum_opts &>/dev/null || return 1; }
@@ -320,164 +321,164 @@ retrieve_version_file() { grab_remote_file "https://github.com/casjay-base/cento
 domain_name() { hostname -d | grep -Fv '(none)' | grep '^' || hostname -f | awk -F'.' '{$1="";OFS="." ; print $0}' | sed 's/^.//;s| |.|g' | grep '^' || echo "$HOSTNAME"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 printf_head() {
-  printf '%b##################################################\n' "$CYAN"
-  printf '%b%s%b\n' $GREEN "$*" $CYAN
-  printf '##################################################%b\n' $NC
+	printf '%b##################################################\n' "$CYAN"
+	printf '%b%s%b\n' $GREEN "$*" $CYAN
+	printf '##################################################%b\n' $NC
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 printf_clear() {
-  clear
-  printf_head "$*"
+	clear
+	printf_head "$*"
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 rm_if_exists() {
-  local file_loc=("$@") && shift $#
-  for file in "${file_loc[@]}"; do
-    if [ -e "$file" ]; then
-      execute "rm -Rf $file" "Removing $file"
-    fi
-  done
+	local file_loc=("$@") && shift $#
+	for file in "${file_loc[@]}"; do
+		if [ -e "$file" ]; then
+			execute "rm -Rf $file" "Removing $file"
+		fi
+	done
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 retrieve_repo_file() {
-  local statusCode="0"
-  local YUM_DELETE="true"
-  yum clean all &>/dev/null
-  if [ "$RELEASE_TYPE" = "centos" ] && [ "$SET_HOSTNAME" != "pbx" ]; then
-    if [ "$RELEASE_VER" -ge "9" ]; then
-      YUM_DELETE="yes"
-      REPO_REPLACE="no"
-      RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
-    elif [ "$RELEASE_VER" -ge "8" ]; then
-      YUM_DELETE="yes"
-      REPO_REPLACE="yes"
-      RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh8.repo"
-    elif [ "$RELEASE_VER" -lt "8" ]; then
-      YUM_DELETE="yes"
-      REPO_REPLACE="yes"
-      RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
-    else
-      YUM_DELETE="no"
-      REPO_REPLACE="no"
-      RELEASE_FILE=""
-    fi
-  else
-    yum makecache &>/dev/null
-    return
-  fi
-  if [ -n "$RELEASE_FILE" ]; then
-    printf '%b\n' "${YELLOW}Updating yum repos: This may take some time${NC}"
-    backup_repo_files
-    rm_repo_files "$YUM_DELETE"
-    save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
-    if [ "$ARCH" != "x86_64" ] && [ "$REPO_REPLACE" = "yes" ]; then
-      sed -i 's|.*http://mirrors.elrepo.org/mirrors-elrepo.*|baseurl=https://rpm-devel.sourceforge.io/repo/RHEL/$releasever/$basearch/empty|g' /etc/yum.repos.d/casjay.repo
-      sed -i 's|.*https://mirror.usi.edu/pub/remi/enterprise/.*|baseurl=https://rpm-devel.sourceforge.io/repo/RHEL/$releasever/$basearch/empty|g' /etc/yum.repos.d/casjay.repo
-    fi
-    yum makecache &>/dev/null || statusCode=1
-  fi
-  [ "$statusCode" -ne 0 ] || printf '%b\n' "${YELLOW}Done updating repos${NC}"
-  return $statusCode
+	local statusCode="0"
+	local YUM_DELETE="true"
+	yum clean all &>/dev/null
+	if [ "$RELEASE_TYPE" = "centos" ] && { [ "$FORCE_INSTALL" = "yes" ] || [ "$SET_HOSTNAME" != "pbx" ]; }; then
+		if [ "$RELEASE_VER" -ge "9" ]; then
+			YUM_DELETE="yes"
+			REPO_REPLACE="no"
+			RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
+		elif [ "$RELEASE_VER" -ge "8" ]; then
+			YUM_DELETE="yes"
+			REPO_REPLACE="yes"
+			RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh8.repo"
+		elif [ "$RELEASE_VER" -lt "8" ]; then
+			YUM_DELETE="yes"
+			REPO_REPLACE="yes"
+			RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
+		else
+			YUM_DELETE="no"
+			REPO_REPLACE="no"
+			RELEASE_FILE=""
+		fi
+	else
+		yum makecache &>/dev/null
+		return
+	fi
+	if [ -n "$RELEASE_FILE" ]; then
+		printf '%b\n' "${YELLOW}Updating yum repos: This may take some time${NC}"
+		backup_repo_files
+		rm_repo_files "$YUM_DELETE"
+		save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
+		if [ "$ARCH" != "x86_64" ] && [ "$REPO_REPLACE" = "yes" ]; then
+			sed -i 's|.*http://mirrors.elrepo.org/mirrors-elrepo.*|baseurl=https://rpm-devel.sourceforge.io/repo/RHEL/$releasever/$basearch/empty|g' /etc/yum.repos.d/casjay.repo
+			sed -i 's|.*https://mirror.usi.edu/pub/remi/enterprise/.*|baseurl=https://rpm-devel.sourceforge.io/repo/RHEL/$releasever/$basearch/empty|g' /etc/yum.repos.d/casjay.repo
+		fi
+		yum makecache &>/dev/null || statusCode=1
+	fi
+	[ "$statusCode" -ne 0 ] || printf '%b\n' "${YELLOW}Done updating repos${NC}"
+	return $statusCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_grub() {
-  local cfg="" efi="" grub_cfg="" grub_efi="" grub_bin="" grub_bin_name=""
-  grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' 2>/dev/null | grep '^' || false)"
-  grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' 2>/dev/null | grep '^' || false)"
-  grub_bin="$(builtin type -P grub-mkconfig 2>/dev/null || builtin type -P grub2-mkconfig 2>/dev/null || false)"
-  grub_bin_name="$(basename "$grub_bin" 2>/dev/null || false)"
-  if [ -n "$grub_bin" ]; then
-    if [ -f "/etc/default/grub" ]; then
-      for opt in 'biosdevname' 'net.ifnames'; do
-        if grep -shq "$opt" '/etc/default/grub'; then
-          devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/'$opt'=[01]/'$opt'=0/' /etc/default/grub
-        else
-          devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ '$opt'=0"/' /etc/default/grub
-        fi
-      done
-      if ! stat -fc %T '/sys/fs/cgroup' | grep -q 'cgroup2fs' && ! grep -sq 'systemd.unified_cgroup_hierarchy' /etc/default/grub; then
-        devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ systemd.unified_cgroup_hierarchy=1"/' /etc/default/grub
-      fi
-    fi
-    if grep -sq 'GRUB_ENABLE_BLSCFG' "/etc/default/grub"; then
-      sed -i 's|GRUB_ENABLE_BLSCFG=.*|GRUB_ENABLE_BLSCFG=false|g' '/etc/default/grub'
-    else
-      echo "GRUB_ENABLE_BLSCFG=false" >>'/etc/default/grub'
-    fi
-    # if grep -sq 'crashkernel=' '/etc/default/grub'; then
-    #   sed -i '/^GRUB_CMDLINE_LINUX=/s/crashkernel=.*[KMG][, ]//' '/etc/default/grub'
-    # fi
-    rm_if_exists /boot/*rescue*
-    rm_if_exists /boot/loader/entries/*
-    if [ -n "$grub_cfg" ]; then
-      for cfg in $grub_cfg; do
-        if [ -e "$cfg" ]; then
-          devnull $grub_bin -o "$cfg" && printf_green "Updated $cfg" || printf_return "Failed to update $cfg"
-        fi
-      done
-    fi
-    if [ -n "$grub_efi" ]; then
-      for efi in $grub_efi; do
-        if [ -e "$efi" ]; then
-          devnull $grub_bin -o "$efi" && printf_green "Updated $efi" || printf_return "Failed to update $efi"
-        fi
-      done
-    fi
-  fi
+	local cfg="" efi="" grub_cfg="" grub_efi="" grub_bin="" grub_bin_name=""
+	grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' 2>/dev/null | grep '^' || false)"
+	grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' 2>/dev/null | grep '^' || false)"
+	grub_bin="$(builtin type -P grub-mkconfig 2>/dev/null || builtin type -P grub2-mkconfig 2>/dev/null || false)"
+	grub_bin_name="$(basename "$grub_bin" 2>/dev/null || false)"
+	if [ -n "$grub_bin" ]; then
+		if [ -f "/etc/default/grub" ]; then
+			for opt in 'biosdevname' 'net.ifnames'; do
+				if grep -shq "$opt" '/etc/default/grub'; then
+					devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/'$opt'=[01]/'$opt'=0/' /etc/default/grub
+				else
+					devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ '$opt'=0"/' /etc/default/grub
+				fi
+			done
+			if ! stat -fc %T '/sys/fs/cgroup' | grep -q 'cgroup2fs' && ! grep -sq 'systemd.unified_cgroup_hierarchy' /etc/default/grub; then
+				devnull sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ systemd.unified_cgroup_hierarchy=1"/' /etc/default/grub
+			fi
+		fi
+		if grep -sq 'GRUB_ENABLE_BLSCFG' "/etc/default/grub"; then
+			sed -i 's|GRUB_ENABLE_BLSCFG=.*|GRUB_ENABLE_BLSCFG=false|g' '/etc/default/grub'
+		else
+			echo "GRUB_ENABLE_BLSCFG=false" >>'/etc/default/grub'
+		fi
+		# if grep -sq 'crashkernel=' '/etc/default/grub'; then
+		#   sed -i '/^GRUB_CMDLINE_LINUX=/s/crashkernel=.*[KMG][, ]//' '/etc/default/grub'
+		# fi
+		rm_if_exists /boot/*rescue*
+		rm_if_exists /boot/loader/entries/*
+		if [ -n "$grub_cfg" ]; then
+			for cfg in $grub_cfg; do
+				if [ -e "$cfg" ]; then
+					devnull $grub_bin -o "$cfg" && printf_green "Updated $cfg" || printf_return "Failed to update $cfg"
+				fi
+			done
+		fi
+		if [ -n "$grub_efi" ]; then
+			for efi in $grub_efi; do
+				if [ -e "$efi" ]; then
+					devnull $grub_bin -o "$efi" && printf_green "Updated $efi" || printf_return "Failed to update $efi"
+				fi
+			done
+		fi
+	fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 run_post() {
-  local e="$*"
-  local m="${e//devnull /}"
-  execute "$e" "${run_post_message:-executing: $m}"
-  setexitstatus
-  set --
-  unset run_post_message
+	local e="$*"
+	local m="${e//devnull /}"
+	execute "$e" "${run_post_message:-executing: $m}"
+	setexitstatus
+	set --
+	unset run_post_message
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __kernel_ml() {
-  local exitC=0
-  local kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
-  local kernel_avail="$(yum search kernel-ml 2>&1 | awk '{print $1}' | grep '^kernel-ml-.*[.]' || return)"
-  if [ -n "$kernel" ]; then
-    printf_green "You are already running kernel-ml: $kernel"
-  elif [ -n "$kernel_avail" ]; then
-    printf_cyan "Switching to the newest kernel from elrepo - This may take a few minutes"
-    pkgs="$(rpm -qa | grep -v 'kernel-ml' | grep '^kernel')"
-    [ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
-    yum install -yyq kernel-ml kernel-core kernel-ml-modules kernel-ml-modules-extra kernel-ml-tools >/dev/null || exitC=1
-    run_grub
-  else
-    printf_yellow "kernel-ml doesn't seem to be avaliable"
-    exitC=1
-  fi
-  return $exitC
+	local exitC=0
+	local kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
+	local kernel_avail="$(yum search kernel-ml 2>&1 | awk '{print $1}' | grep '^kernel-ml-.*[.]' || return)"
+	if [ -n "$kernel" ]; then
+		printf_green "You are already running kernel-ml: $kernel"
+	elif [ -n "$kernel_avail" ]; then
+		printf_cyan "Switching to the newest kernel from elrepo - This may take a few minutes"
+		pkgs="$(rpm -qa | grep -v 'kernel-ml' | grep '^kernel')"
+		[ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
+		yum install -yyq kernel-ml kernel-core kernel-ml-modules kernel-ml-modules-extra kernel-ml-tools >/dev/null || exitC=1
+		run_grub
+	else
+		printf_yellow "kernel-ml doesn't seem to be avaliable"
+		exitC=1
+	fi
+	return $exitC
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __kernel_lt() {
-  local exitC=0
-  local kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
-  local kernel_avail="$(yum search kernel-lt 2>&1 | awk '{print $1}' | grep '^kernel-lt-.*[.]' || return)"
-  if [ -n "$kernel" ]; then
-    printf_green "You are already running kernel-lt: $kernel"
-  elif [ -n "$kernel_avail" ]; then
-    printf_cyan "Switching to the newest LTS kernel from elrepo - This may take a few minutes"
-    pkgs="$(rpm -qa | grep -v 'kernel-lt' | grep '^kernel')"
-    [ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
-    yum install -yyq kernel-lt kernel-lt-core kernel-lt-modules kernel-lt-modules-extra kernel-lt-tools >/dev/null || exitC=1
-    run_grub
-  else
-    printf_yellow "kernel-lt doesn't seem to be avaliable"
-    exitC=1
-  fi
-  return $exitC
+	local exitC=0
+	local kernel="$(uname -r 2>/dev/null | grep -F 'elrepo')"
+	local kernel_avail="$(yum search kernel-lt 2>&1 | awk '{print $1}' | grep '^kernel-lt-.*[.]' || return)"
+	if [ -n "$kernel" ]; then
+		printf_green "You are already running kernel-lt: $kernel"
+	elif [ -n "$kernel_avail" ]; then
+		printf_cyan "Switching to the newest LTS kernel from elrepo - This may take a few minutes"
+		pkgs="$(rpm -qa | grep -v 'kernel-lt' | grep '^kernel')"
+		[ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
+		yum install -yyq kernel-lt kernel-lt-core kernel-lt-modules kernel-lt-modules-extra kernel-lt-tools >/dev/null || exitC=1
+		run_grub
+	else
+		printf_yellow "kernel-lt doesn't seem to be avaliable"
+		exitC=1
+	fi
+	return $exitC
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 fix_network_device_name() {
-  local device=""
-  device="$(ip -4 route ls 2>/dev/null | grep default | grep -Po '(?<=dev )(\S+)' | head -n1 | grep '^' || echo 'eth0')"
-  printf_green "Setting network device name to $device in $1"
-  find "$1" -type f -exec sed -i 's|eth0|'$device'|g' {} +
+	local device=""
+	device="$(ip -4 route ls 2>/dev/null | grep default | grep -Po '(?<=dev )(\S+)' | head -n1 | grep '^' || echo 'eth0')"
+	printf_green "Setting network device name to $device in $1"
+	find "$1" -type f -exec sed -i 's|eth0|'$device'|g' {} +
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ##################################################################################################################
@@ -485,32 +486,32 @@ printf_clear "Initializing the installer for $RELEASE_NAME using $SCRIPT_DESCRIB
 ##################################################################################################################
 [ -d "/etc/casjaysdev/updates/versions" ] || mkdir -p "/etc/casjaysdev/updates/versions"
 if [ -f "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt" ]; then
-  printf_red "$(<"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt")"
-  printf_red "To reinstall please remove the version file in"
-  printf_red "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
-  exit 1
+	printf_red "$(<"/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt")"
+	printf_red "To reinstall please remove the version file in"
+	printf_red "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
+	exit 1
 elif [ -f "/etc/casjaysdev/updates/versions/installed.txt" ]; then
-  printf_red "$(<"/etc/casjaysdev/updates/versions/installed.txt")"
-  printf_red "To reinstall please remove the version file in"
-  printf_red "/etc/casjaysdev/updates/versions/installed.txt"
-  exit 1
+	printf_red "$(<"/etc/casjaysdev/updates/versions/installed.txt")"
+	printf_red "To reinstall please remove the version file in"
+	printf_red "/etc/casjaysdev/updates/versions/installed.txt"
+	exit 1
 else
-  run_init_check
-  if ! retrieve_repo_file; then
-    devnull rm_if_exists "/etc/casjaysdev/updates/versions/installed.txt"
-    devnull rm_if_exists "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
-    printf_red "The script has failed to initialize"
-    exit 2
-  fi
-  if [ ! -f "/etc/casjaysdev/updates/versions/os_version.txt" ]; then
-    echo "$RELEASE_VER" >"/etc/casjaysdev/updates/versions/os_version.txt"
-  fi
+	run_init_check
+	if ! retrieve_repo_file; then
+		devnull rm_if_exists "/etc/casjaysdev/updates/versions/installed.txt"
+		devnull rm_if_exists "/etc/casjaysdev/updates/versions/$SCRIPT_NAME.txt"
+		printf_red "The script has failed to initialize"
+		exit 2
+	fi
+	if [ ! -f "/etc/casjaysdev/updates/versions/os_version.txt" ]; then
+		echo "$RELEASE_VER" >"/etc/casjaysdev/updates/versions/os_version.txt"
+	fi
 fi
 if [ -n "$(type -P systemmgr)" ]; then
-  run_external /usr/local/share/CasjaysDev/scripts/install.sh
-  run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr --config
-  run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr update scripts
-  run_external "__yum clean all"
+	run_external /usr/local/share/CasjaysDev/scripts/install.sh
+	run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr --config
+	run_external /usr/local/share/CasjaysDev/scripts/bin/systemmgr update scripts
+	run_external "__yum clean all"
 fi
 printf_green "Installer has been initialized"
 ##################################################################################################################
@@ -527,15 +528,15 @@ system_service_enable vnstat && systemctl restart vnstat &>/dev/null
 printf_head "Configuring the kernel"
 ##################################################################################################################
 if [ "$DEFAULT_KERNEL" = "ml" ] || [ "$DEFAULT_KERNEL" = "kernel-ml" ]; then
-  __kernel_ml
-  install_pkg kernel-ml-modules
-  install_pkg kernel-ml-modules-extra
+	__kernel_ml
+	install_pkg kernel-ml-modules
+	install_pkg kernel-ml-modules-extra
 elif [ "$DEFAULT_KERNEL" = "lt" ] || [ "$DEFAULT_KERNEL" = "kernel-lt" ]; then
-  __kernel_lt
-  install_pkg kernel-lt-modules
-  install_pkg kernel-lt-modules-extra
+	__kernel_lt
+	install_pkg kernel-lt-modules
+	install_pkg kernel-lt-modules-extra
 else
-  DEFAULT_KERNEL="kernel"
+	DEFAULT_KERNEL="kernel"
 fi
 ##################################################################################################################
 printf_head "Disabling selinux"
@@ -547,11 +548,11 @@ printf_head "Configuring cores for compiling"
 numberofcores=$(grep -c ^processor /proc/cpuinfo)
 printf_yellow "Total cores avaliable: $numberofcores"
 if [ $numberofcores -gt 1 ]; then
-  if [ -f "/etc/makepkg.conf" ]; then
-    sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores + 1))'"/g' /etc/makepkg.conf
-    sed -i 's/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T '"$numberofcores"' -z -)/g' /etc/makepkg.conf
-  else
-    cat <<EOF >"/etc/makepkg.conf"
+	if [ -f "/etc/makepkg.conf" ]; then
+		sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j'$(($numberofcores + 1))'"/g' /etc/makepkg.conf
+		sed -i 's/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T '"$numberofcores"' -z -)/g' /etc/makepkg.conf
+	else
+		cat <<EOF >"/etc/makepkg.conf"
 #########################################################################
 # ARCHITECTURE, COMPILE FLAGS
 #########################################################################
@@ -601,7 +602,7 @@ COMPRESSLZ=(lzip -c -f)
 # END
 #########################################################################
 EOF
-  fi
+	fi
 fi
 ##################################################################################################################
 printf_head "Grabbing ssh key[s]: from $SSH_KEY_LOCATION for $USER"
@@ -635,24 +636,24 @@ run_external yum update -q -yy --skip-broken
 printf_head "Enabling ip forwarding"
 ##################################################################################################################
 for sysctlconf in /etc/sysctl.conf /etc/sysctl.d/*; do
-  if grep -qsF 'net.ipv4.ip_forward' "$sysctlconf"; then
-    devnull sed -i 's/net.ipv4.ip_forward.*/net.ipv4.ip_forward=1/g' "$sysctlconf"
-  else
-    sysctl_ip4_forward=0
-  fi
-  if grep -qsFR 'net.ipv6.conf.all.forwarding' "$sysctlconf"; then
-    devnull sed -i 's/net.ipv6.conf.all.forwarding.*/net.ipv6.conf.all.forwarding=1/g' "$sysctlconf"
-  else
-    sysctl_ip6_forward=0
-  fi
+	if grep -qsF 'net.ipv4.ip_forward' "$sysctlconf"; then
+		devnull sed -i 's/net.ipv4.ip_forward.*/net.ipv4.ip_forward=1/g' "$sysctlconf"
+	else
+		sysctl_ip4_forward=0
+	fi
+	if grep -qsFR 'net.ipv6.conf.all.forwarding' "$sysctlconf"; then
+		devnull sed -i 's/net.ipv6.conf.all.forwarding.*/net.ipv6.conf.all.forwarding=1/g' "$sysctlconf"
+	else
+		sysctl_ip6_forward=0
+	fi
 done
 if [ "$sysctl_ip4_forward" = 0 ]; then
-  unset sysctl_ip4_forward
-  echo "net.ipv4.ip_forward=1" >>'/etc/sysctl.conf'
+	unset sysctl_ip4_forward
+	echo "net.ipv4.ip_forward=1" >>'/etc/sysctl.conf'
 fi
 if [ "$sysctl_ip6_forward" = 0 ]; then
-  unset sysctl_ip6_forward
-  echo "net.ipv6.conf.all.forwarding=1" >>'/etc/sysctl.conf'
+	unset sysctl_ip6_forward
+	echo "net.ipv6.conf.all.forwarding=1" >>'/etc/sysctl.conf'
 fi
 ##################################################################################################################
 printf_head "Installing the packages for $RELEASE_NAME"
@@ -799,14 +800,14 @@ install_pkg zip
 install_pkg zlib
 ##################################################################################################################
 if [ "$SYSTEM_TYPE" = "dns" ]; then
-  if devnull install_pkg ntp || devnull install_pkg ntpsec; then
-    printf_cyan "Installed ntp"
-    SERVICES_ENABLE="$SERVICES_ENABLE ntpd"
-    [ -d "/var/lib/ntp/stats" ] || mkdir -p "/var/lib/ntp/stats"
-  fi
+	if devnull install_pkg ntp || devnull install_pkg ntpsec; then
+		printf_cyan "Installed ntp"
+		SERVICES_ENABLE="$SERVICES_ENABLE ntpd"
+		[ -d "/var/lib/ntp/stats" ] || mkdir -p "/var/lib/ntp/stats"
+	fi
 else
-  install_pkg chrony
-  SERVICES_ENABLE="$SERVICES_ENABLE chrony"
+	install_pkg chrony
+	SERVICES_ENABLE="$SERVICES_ENABLE chrony"
 fi
 ##################################################################################################################
 printf_head "Fixing grub"
@@ -818,18 +819,18 @@ printf_head "Installing custom web server files"
 [ -d "$CONFIG_TEMP_DIR" ] && devnull rm_if_exists "$CONFIG_TEMP_DIR"
 devnull git clone -q "https://github.com/casjay-base/centos" "$CONFIG_TEMP_DIR"
 if [ -d "/var/www/html/sysinfo/.git" ]; then
-  devnull git -C "/var/www/html/sysinfo" reset --hard
-  run_post git -C "/var/www/html/sysinfo" pull -q
+	devnull git -C "/var/www/html/sysinfo" reset --hard
+	run_post git -C "/var/www/html/sysinfo" pull -q
 else
-  devnull rm_if_exists "/var/www/html/sysinfo"
-  run_post git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
+	devnull rm_if_exists "/var/www/html/sysinfo"
+	run_post git clone -q "https://github.com/phpsysinfo/phpsysinfo" "/var/www/html/sysinfo"
 fi
 if [ -d "/var/www/html/vnstat/.git" ]; then
-  devnull git -C "/var/www/html/vnstat" reset --hard
-  run_post git -C "/var/www/html/vnstat" pull -q
+	devnull git -C "/var/www/html/vnstat" reset --hard
+	run_post git -C "/var/www/html/vnstat" pull -q
 else
-  devnull rm_if_exists "/var/www/html/vnstat"
-  run_post git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
+	devnull rm_if_exists "/var/www/html/vnstat"
+	run_post git clone -q "https://github.com/solbu/vnstat-php-frontend" "/var/www/html/vnstat"
 fi
 run_post_message="Installing default server files" run_post sudo -HE STATICSITE="$(hostname -f)" bash -c "$(curl -LSs "https://github.com/casjay-templates/default-web-assets/raw/main/setup.sh")"
 [ -f "/etc/httpd/modules/mod_wsgi_python3.so" ] && ln -sf /etc/httpd/modules/mod_wsgi_python3.so /etc/httpd/modules/mod_wsgi.so
@@ -837,48 +838,48 @@ run_post_message="Installing default server files" run_post sudo -HE STATICSITE=
 printf_head "Deleting files"
 ##################################################################################################################
 if system_service_active named || port_in_use "53"; then
-  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/named*
-  devnull rm_if_exists $CONFIG_TEMP_DIR/var/named*
+	devnull rm_if_exists $CONFIG_TEMP_DIR/etc/named*
+	devnull rm_if_exists $CONFIG_TEMP_DIR/var/named*
 else
-  devnull rm_if_exists /etc/named* /var/named/*
+	devnull rm_if_exists /etc/named* /var/named/*
 fi
 if [ -z "$(type -p ntp || type -p ntpd || type -p ntpq)" ]; then
-  IS_INSTALLED_NTP=no
-  devnull rm_if_exists /etc/ntp*
-  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/ntp*
+	IS_INSTALLED_NTP=no
+	devnull rm_if_exists /etc/ntp*
+	devnull rm_if_exists $CONFIG_TEMP_DIR/etc/ntp*
 fi
 if [ -z "$(type -p chronyd)" ]; then
-  IS_INSTALLED_CHRONY=no
-  devnull rm_if_exists /etc/chrony*
-  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/chrony*
+	IS_INSTALLED_CHRONY=no
+	devnull rm_if_exists /etc/chrony*
+	devnull rm_if_exists $CONFIG_TEMP_DIR/etc/chrony*
 fi
 if [ -z "$(type -P httpd)" ]; then
-  IS_INSTALLED_HTTPD=no
-  devnull rm_if_exists /etc/httpd*
-  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/httpd*
+	IS_INSTALLED_HTTPD=no
+	devnull rm_if_exists /etc/httpd*
+	devnull rm_if_exists $CONFIG_TEMP_DIR/etc/httpd*
 fi
 if [ -z "$(type -P nginx)" ]; then
-  IS_INSTALLED_NGINX=no
-  devnull rm_if_exists /etc/nginx*
-  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/nginx*
+	IS_INSTALLED_NGINX=no
+	devnull rm_if_exists /etc/nginx*
+	devnull rm_if_exists $CONFIG_TEMP_DIR/etc/nginx*
 fi
 if [ -z "$(type -P named)" ]; then
-  IS_INSTALLED_BIND=no
-  devnull rm_if_exists /etc/named*
-  devnull rm_if_exists /var/named*
-  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/named*
-  devnull rm_if_exists $CONFIG_TEMP_DIR/var/named*
+	IS_INSTALLED_BIND=no
+	devnull rm_if_exists /etc/named*
+	devnull rm_if_exists /var/named*
+	devnull rm_if_exists $CONFIG_TEMP_DIR/etc/named*
+	devnull rm_if_exists $CONFIG_TEMP_DIR/var/named*
 fi
 if [ -z "$(type -P proftpd)" ]; then
-  IS_INSTALLED_PROFTPD=no
-  devnull rm_if_exists /etc/proftpd*
-  devnull rm_if_exists $CONFIG_TEMP_DIR/etc/proftpd*
+	IS_INSTALLED_PROFTPD=no
+	devnull rm_if_exists /etc/proftpd*
+	devnull rm_if_exists $CONFIG_TEMP_DIR/etc/proftpd*
 fi
 if [ -f "/etc/certbot/dns.conf" ]; then
-  devnull rm_if_exists "$CONFIG_TEMP_DIR/etc/certbot/dns.conf"
+	devnull rm_if_exists "$CONFIG_TEMP_DIR/etc/certbot/dns.conf"
 fi
 for rm_file in /etc/cron*/0* /etc/cron*/dailyjobs /var/ftp/uploads /etc/httpd/conf.d/ssl.conf; do
-  run_post devnull rm_if_exists "$rm_file"
+	run_post devnull rm_if_exists "$rm_file"
 done
 ##################################################################################################################
 printf_head "setting up config files"
@@ -902,13 +903,13 @@ devnull find "$CONFIG_TEMP_DIR" -type f -exec sed -i "s#myserverdomainname#$myse
 devnull find "$CONFIG_TEMP_DIR" -type f -exec sed -i "s#mycurrentipaddress_6#$mycurrentipaddress_6#g" {} \;
 devnull find "$CONFIG_TEMP_DIR" -type f -exec sed -i "s#mycurrentipaddress_4#$mycurrentipaddress_4#g" {} \;
 if [ -n "$NETDEV" ]; then
-  devnull find -L $CONFIG_TEMP_DIR -type f -exec sed -i "s#mynetworkdevice#$NETDEV#g" {} \; || devnull find -L $CONFIG_TEMP_DIR -type f -exec sed -i "s#mynetworkdevice#eth0#g" {} \;
-  if [ -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" ]; then
-    devnull mv -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" "/etc/sysconfig/network-scripts/ifcfg-$NETDEV.sample"
-  fi
+	devnull find -L $CONFIG_TEMP_DIR -type f -exec sed -i "s#mynetworkdevice#$NETDEV#g" {} \; || devnull find -L $CONFIG_TEMP_DIR -type f -exec sed -i "s#mynetworkdevice#eth0#g" {} \;
+	if [ -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" ]; then
+		devnull mv -f "/etc/sysconfig/network-scripts/ifcfg-eth0.sample" "/etc/sysconfig/network-scripts/ifcfg-$NETDEV.sample"
+	fi
 fi
 if [ -z "$does_lo_have_ipv6" ]; then
-  sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' $CONFIG_TEMP_DIR/etc/postfix/main.cf
+	sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' $CONFIG_TEMP_DIR/etc/postfix/main.cf
 fi
 devnull rm_if_exists $CONFIG_TEMP_DIR/etc/{fail2ban,shorewall,shorewall6}
 devnull mkdir -p /etc/rsync.d /var/log/named
@@ -919,31 +920,31 @@ devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
 if [ -z "$IS_INSTALLED_BIND" ]; then
-  if does_user_exist 'named'; then
-    devnull mkdir -p /etc/named /var/named /var/log/named
-    devnull chown -Rf named:named /etc/named* /var/named /var/log/named
-  fi
+	if does_user_exist 'named'; then
+		devnull mkdir -p /etc/named /var/named /var/log/named
+		devnull chown -Rf named:named /etc/named* /var/named /var/log/named
+	fi
 fi
 if [ -z "$(type -P postfix)" ]; then
-  rm_if_exists /etc/postfix
+	rm_if_exists /etc/postfix
 else
-  for postfix_proto in "/etc/postfix"/*.proto; do
-    devnull rm_if_exists $postfix_proto
-  done
-  devnull chgrp postdrop /usr/sbin/postqueue
-  devnull chgrp postdrop /usr/sbin/postdrop
-  devnull chgrp postdrop /var/spool/postfix/maildrop
-  devnull chgrp postdrop /var/spool/postfix/public
-  devnull chown root /var/spool/postfix/pid
-  devnull chmod g+s /usr/sbin/postqueue
-  devnull chmod g+s /usr/sbin/postdrop
-  devnull killall -9 postdrop
-  devnull postfix set-permissions create-missing
-  devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
-  devnull newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
+	for postfix_proto in "/etc/postfix"/*.proto; do
+		devnull rm_if_exists $postfix_proto
+	done
+	devnull chgrp postdrop /usr/sbin/postqueue
+	devnull chgrp postdrop /usr/sbin/postdrop
+	devnull chgrp postdrop /var/spool/postfix/maildrop
+	devnull chgrp postdrop /var/spool/postfix/public
+	devnull chown root /var/spool/postfix/pid
+	devnull chmod g+s /usr/sbin/postqueue
+	devnull chmod g+s /usr/sbin/postdrop
+	devnull killall -9 postdrop
+	devnull postfix set-permissions create-missing
+	devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
+	devnull newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 fi
 if ! grep -sq 'kernel.domainname' "/etc/sysctl.conf"; then
-  echo "kernel.domainname=$set_domainname" >>/etc/sysctl.conf
+	echo "kernel.domainname=$set_domainname" >>/etc/sysctl.conf
 fi
 devnull systemctl daemon-reload
 unset postfix_proto
@@ -956,11 +957,11 @@ exclude_packages="--exclude=qemu*-9*"
 devnull crb enable
 devnull yum clean packages
 if ! grep -Rqsi 'copr.*incus' '/etc/yum.repos.d'; then
-  printf_green "Enabling the dnf incus repo"
-  devnull dnf -y install epel-release
-  devnull dnf -y copr enable neil/incus
-  devnull dnf -y config-manager --enable crb
-  __yum makecache
+	printf_green "Enabling the dnf incus repo"
+	devnull dnf -y install epel-release
+	devnull dnf -y copr enable neil/incus
+	devnull dnf -y config-manager --enable crb
+	__yum makecache
 fi
 install_pkg incus
 install_pkg incus-tools
@@ -969,23 +970,23 @@ unset exclude_packages
 [ -n "$(type -p setupmgr)" ] && setupmgr incus
 echo "0:1000000:1000000000" | tee /etc/subuid /etc/subgid >/dev/null
 if system_service_exists "incus"; then
-  devnull systemctl start "incus"
-  devnull systemctl restart "incus"
-  devnull systemctl enable --now incus || incus_setup_failed="yes"
+	devnull systemctl start "incus"
+	devnull systemctl restart "incus"
+	devnull systemctl enable --now incus || incus_setup_failed="yes"
 else
-  incus_setup_failed=yes
+	incus_setup_failed=yes
 fi
 [ "$(ls -A /var/lib/incus/* 2>/dev/null | wc -l)" != "0" ] && incus_setup_message="incus seems to be initialized" || { incus_setup_failed="yes" && incus_setup_message="incus seems to have already been initialized"; }
 if [ "$incus_setup_failed" = "no" ]; then
-  if incus admin init --network-address 127.0.0.1 --network-port 60443 --storage-backend dir --quiet --auto; then
-    devnull incus network set incusbr0 ipv4.firewall false
-    devnull incus network set incusbr0 ipv6.firewall false
-    devnull systemctl restart incus
-    printf_blue "incus has been initialized"
-    unset incus_setup_failed incus_setup_message
-  else
-    incus_setup_failed="yes"
-  fi
+	if incus admin init --network-address 127.0.0.1 --network-port 60443 --storage-backend dir --quiet --auto; then
+		devnull incus network set incusbr0 ipv4.firewall false
+		devnull incus network set incusbr0 ipv6.firewall false
+		devnull systemctl restart incus
+		printf_blue "incus has been initialized"
+		unset incus_setup_failed incus_setup_message
+	else
+		incus_setup_failed="yes"
+	fi
 fi
 ##################################################################################################################
 printf_head "Configuring the firewall"
@@ -1009,29 +1010,29 @@ printf_head "Configuring cloudflare dns for $SET_HOSTNAME"
 ##################################################################################################################
 CLOUDFLARE_PROXY="${CLOUDFLARE_PROXY:-false}"
 if [ -f "$HOME/.config/secure/cloudflare.txt" ]; then
-  . "$HOME/.config/secure/cloudflare.txt"
-  CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-internal2.me}"
-  if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
-    if [ -n "$(type -P "cloudflare")" ]; then
-      if devnull cloudflare update $SET_HOSTNAME --proxy $CLOUDFLARE_PROXY; then
-        CLOUDFLARE_DOMAIN="yes"
-        devnull cloudflare update "*.$SET_HOSTNAME" --proxy $CLOUDFLARE_PROXY
-        printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
-      elif devnull cloudflare create $SET_HOSTNAME --proxy $CLOUDFLARE_PROXY; then
-        CLOUDFLARE_DOMAIN="yes"
-        devnull cloudflare create "*.$SET_HOSTNAME" --proxy $CLOUDFLARE_PROXY
-        printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
-      else
-        printf_red "Failed to create record $SET_HOSTNAME for zone $CLOUDFLARE_DEFAULT_ZONE"
-      fi
-    fi
-  fi
+	. "$HOME/.config/secure/cloudflare.txt"
+	CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-internal2.me}"
+	if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
+		if [ -n "$(type -P "cloudflare")" ]; then
+			if devnull cloudflare update $SET_HOSTNAME --proxy $CLOUDFLARE_PROXY; then
+				CLOUDFLARE_DOMAIN="yes"
+				devnull cloudflare update "*.$SET_HOSTNAME" --proxy $CLOUDFLARE_PROXY
+				printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
+			elif devnull cloudflare create $SET_HOSTNAME --proxy $CLOUDFLARE_PROXY; then
+				CLOUDFLARE_DOMAIN="yes"
+				devnull cloudflare create "*.$SET_HOSTNAME" --proxy $CLOUDFLARE_PROXY
+				printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
+			else
+				printf_red "Failed to create record $SET_HOSTNAME for zone $CLOUDFLARE_DEFAULT_ZONE"
+			fi
+		fi
+	fi
 else
-  printf_yellow "Can no load $HOME/.config/secure/cloudflare.txt"
+	printf_yellow "Can no load $HOME/.config/secure/cloudflare.txt"
 fi
 if [ "$CLOUDFLARE_DOMAIN" = "yes" ] && [ "$CLOUDFLARE_PROXY" = "true" ]; then
-  if [ -d "/etc/nginx/vhosts.d" ]; then
-    cat <<EOF >"/etc/nginx/vhosts.d/$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE.conf"
+	if [ -d "/etc/nginx/vhosts.d" ]; then
+		cat <<EOF >"/etc/nginx/vhosts.d/$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE.conf"
 server {
     listen                                  80;
     server_name                             $SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE *.$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE;
@@ -1060,8 +1061,8 @@ server {
     }
 }
 EOF
-  fi
-  unset CLOUDFLARE_DOMAIN
+	fi
+	unset CLOUDFLARE_DOMAIN
 fi
 ##################################################################################################################
 printf_head "Setting up ssl certificates"
@@ -1070,73 +1071,73 @@ printf_head "Setting up ssl certificates"
 [ -f "$HOME/.config/myscripts/acme-cli/settings.conf" ] && . "$HOME/.config/myscripts/acme-cli/settings.conf"
 le_primary_domain="$(echo "$(hostname -d 2>/dev/null | grep '^' || hostname -f 2>/dev/null)" | grep -E '.*[a-zA-Z0-9][.][a-zA-Z0-9]' | grep '^' || false)"
 if [ -n "$le_primary_domain" ]; then
-  le_certs="yes"
-  le_options="--primary $le_primary_domain"
-  le_domain_list="${ACME_CLI_DOMAIN_LIST:-$le_domains}"
-  [ "$le_primary_domain" = "$HOSTNAME" ] || le_options=""
-  if [ -f "/etc/certbot/dns.conf" ]; then
-    chmod -f 600 "/etc/certbot/dns.conf"
-    if [ -n "$(command -v acme-cli 2>/dev/null)" ]; then
-      if [ -z "$le_domain_list" ]; then
-        printf_cyan "Attempting to get certificates from letsencrypt for $le_primary_domain and *.$le_primary_domain"
-        run_post acme-cli --init $le_options
-      else
-        printf_cyan "Attempting to get certificates from letsencrypt for $le_primary_domain and all domains in var: le_domain_list"
-        run_post acme-cli --init --no-test --no-subs
-      fi
-    fi
-  fi
-  if [ -d "/etc/letsencrypt/live/$le_primary_domain" ] || [ -d "/etc/letsencrypt/live/domain" ]; then
-    [ -d "/etc/letsencrypt/live/domain" ] || ln -sf "/etc/letsencrypt/live/$le_primary_domain" /etc/letsencrypt/live/domain
-    find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
-    find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
-    if [ -d "/etc/cockpit/ws-certs.d" ]; then
-      devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
-      cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
-      cat /etc/letsencrypt/live/domain/privkey.pem >>/etc/cockpit/ws-certs.d/1-my-cert.key
-    fi
-    find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \; 2>/dev/null
-    find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \; 2>/dev/null
-    if [ -d "/etc/letsencrypt/renewal-hooks/post" ]; then
-      if [ ! -f "/etc/letsencrypt/renewal-hooks/post/exec.sh" ]; then
-        cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/system.sh" >/dev/null
+	le_certs="yes"
+	le_options="--primary $le_primary_domain"
+	le_domain_list="${ACME_CLI_DOMAIN_LIST:-$le_domains}"
+	[ "$le_primary_domain" = "$HOSTNAME" ] || le_options=""
+	if [ -f "/etc/certbot/dns.conf" ]; then
+		chmod -f 600 "/etc/certbot/dns.conf"
+		if [ -n "$(command -v acme-cli 2>/dev/null)" ]; then
+			if [ -z "$le_domain_list" ]; then
+				printf_cyan "Attempting to get certificates from letsencrypt for $le_primary_domain and *.$le_primary_domain"
+				run_post acme-cli --init $le_options
+			else
+				printf_cyan "Attempting to get certificates from letsencrypt for $le_primary_domain and all domains in var: le_domain_list"
+				run_post acme-cli --init --no-test --no-subs
+			fi
+		fi
+	fi
+	if [ -d "/etc/letsencrypt/live/$le_primary_domain" ] || [ -d "/etc/letsencrypt/live/domain" ]; then
+		[ -d "/etc/letsencrypt/live/domain" ] || ln -sf "/etc/letsencrypt/live/$le_primary_domain" /etc/letsencrypt/live/domain
+		find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \;
+		find /etc/postfix /etc/httpd /etc/nginx -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \;
+		if [ -d "/etc/cockpit/ws-certs.d" ]; then
+			devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
+			cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
+			cat /etc/letsencrypt/live/domain/privkey.pem >>/etc/cockpit/ws-certs.d/1-my-cert.key
+		fi
+		find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \; 2>/dev/null
+		find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \; 2>/dev/null
+		if [ -d "/etc/letsencrypt/renewal-hooks/post" ]; then
+			if [ ! -f "/etc/letsencrypt/renewal-hooks/post/exec.sh" ]; then
+				cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/system.sh" >/dev/null
 #!/usr/bin/env sh
 # Insert any custom commands you want executed after a new cert or upon renewal
 
 EOF
-      fi
-      cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/system.sh" >/dev/null
+			fi
+			cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/system.sh" >/dev/null
 #!/usr/bin/env sh
 cat "/etc/letsencrypt/live/domain/privkey.pem" >"/etc/ssl/certs/\$HOSTNAME.key"
 cat "/etc/letsencrypt/live/domain/fullchain.pem" >"/etc/ssl/certs/\$HOSTNAME.cert"
 EOF
 
-      cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/cockpit.sh" >/dev/null
+			cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/cockpit.sh" >/dev/null
 #!/usr/bin/env sh
 cat "/etc/letsencrypt/live/domain/privkey.pem" >"/etc/cockpit/ws-certs.d/1-my-cert.key"
 cat "/etc/letsencrypt/live/domain/fullchain.pem" >"/etc/cockpit/ws-certs.d/1-my-cert.cert"
 systemctl is-enabled cockpit >/dev/null 2>&1 && systemctl restart cockpit >/dev/null 2>&1
 
 EOF
-      cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/nginx.sh" >/dev/null
+			cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/nginx.sh" >/dev/null
 #!/usr/bin/env sh
 systemctl is-enabled nginx >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1
 
 EOF
 
-      cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/httpd.sh" >/dev/null
+			cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/httpd.sh" >/dev/null
 #!/usr/bin/env sh
 systemctl is-enabled httpd >/dev/null 2>&1 && systemctl reload httpd >/dev/null 2>&1
 
 EOF
 
-      cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/postfix.sh" >/dev/null
+			cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/postfix.sh" >/dev/null
 #!/usr/bin/env sh
 systemctl is-enabled postfix >/dev/null 2>&1 && systemctl reload postfix >/dev/null 2>&1
 
 EOF
-      if [ -d "/opt/openfire/resources/security" ]; then
-        cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/openfire.sh" >/dev/null
+			if [ -d "/opt/openfire/resources/security" ]; then
+				cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/openfire.sh" >/dev/null
 #!/usr/bin/env sh
 privkey="\$(realpath "/etc/letsencrypt/live/domain/privkey.pem")"
 fullchain="\$(realpath "/etc/letsencrypt/live/domain/fullchain.pem")"
@@ -1148,24 +1149,24 @@ chown -R daemon /opt/openfire/resources/security/hotdeploy
 ctl is-enabled openfire >/dev/null 2>&1 && systemctl restart openfire >/dev/null 2>&1
 
 EOF
-      fi
-      chmod +x "/etc/letsencrypt/renewal-hooks/post"/*
-    fi
-    printf_blue "letsencrypt certificates have been created"
-  else
-    copy_ca_certs
-  fi
+			fi
+			chmod +x "/etc/letsencrypt/renewal-hooks/post"/*
+		fi
+		printf_blue "letsencrypt certificates have been created"
+	else
+		copy_ca_certs
+	fi
 else
-  copy_ca_certs
+	copy_ca_certs
 fi
 if [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ]; then
-  if [ -d "/usr/local/share/ca-certificate" ]; then
-    cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/usr/local/share/ca-certificate/"
-  elif [ -d "/etc/pki/ca-trust/source/anchors" ]; then
-    cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/pki/ca-trust/source/anchors/"
-  elif [ -d "/etc/pki/ca-trust/source" ]; then
-    cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/pki/ca-trust/source/"
-  fi
+	if [ -d "/usr/local/share/ca-certificate" ]; then
+		cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/usr/local/share/ca-certificate/"
+	elif [ -d "/etc/pki/ca-trust/source/anchors" ]; then
+		cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/pki/ca-trust/source/anchors/"
+	elif [ -d "/etc/pki/ca-trust/source" ]; then
+		cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/pki/ca-trust/source/"
+	fi
 fi
 [ -n "$(type -P update-ca-trust)" ] && devnull update-ca-trust && devnull update-ca-trust extract
 [ -n "$(type -P dpkg-reconfigure)" ] && devnull dpkg-reconfigure ca-certificates
@@ -1183,79 +1184,79 @@ run_post "munin-node-configure --remove-also --shell" >/dev/null 2>/dev/null
 printf_head "Setting up tor"
 ##################################################################################################################
 if [ -n "$(type -P tor 2>/dev/null)" ]; then
-  devnull systemctl restart tor && sleep 5
-  tor_hostnames="$(find "/var/lib/tor/hidden_service" -type f -name 'hostname' 2>/dev/null | grep '^' || false)"
-  if [ -n "$tor_hostnames" ]; then
-    devnull rm_if_exists "/var/www/html/tor_hostname"
-    for f in $tor_hostnames; do
-      cat "$f" >>"/var/www/html/tor_hostname" 2>/dev/null
-    done
-  fi
-  prinf '%s\n\%s\n' "# Generate tor hosnames" "#30 * * * * root " >"/etc/cron.d/tor_hostname"
+	devnull systemctl restart tor && sleep 5
+	tor_hostnames="$(find "/var/lib/tor/hidden_service" -type f -name 'hostname' 2>/dev/null | grep '^' || false)"
+	if [ -n "$tor_hostnames" ]; then
+		devnull rm_if_exists "/var/www/html/tor_hostname"
+		for f in $tor_hostnames; do
+			cat "$f" >>"/var/www/html/tor_hostname" 2>/dev/null
+		done
+	fi
+	prinf '%s\n\%s\n' "# Generate tor hosnames" "#30 * * * * root " >"/etc/cron.d/tor_hostname"
 fi
 ##################################################################################################################
 printf_head "Setting up bind dns [named]"
 ##################################################################################################################
 if [ -z "$(command -v named)" ]; then
-  devnull rm_if_exists /etc/named
-  devnull rm_if_exists /var/named
-  devnull rm_if_exists /var/log/named
-  devnull rm_if_exists /etc/logrotate.d/named
+	devnull rm_if_exists /etc/named
+	devnull rm_if_exists /var/named
+	devnull rm_if_exists /var/log/named
+	devnull rm_if_exists /etc/logrotate.d/named
 fi
 ##################################################################################################################
 printf_head "Generating default webserver for $HOSTNAME"
 ##################################################################################################################
 if [ -z "$IS_INSTALLED_HTTPD" ] || [ -z "$IS_INSTALLED_NGINX" ]; then
-  if [ -d "/var/www/nginx/domains/$HOSTNAME" ]; then
-    printf_blue "Server directory already exists"
-  else
-    devnull gen-nginx --config
-    devnull gen-nginx php $HOSTNAME
-    if [ -d "/var/www/nginx/domains/$HOSTNAME" ]; then
-      printf_green "Created server in /var/www/nginx/domains/$HOSTNAME"
-    else
-      printf_red "Failed to create default server"
-    fi
-  fi
+	if [ -d "/var/www/nginx/domains/$HOSTNAME" ]; then
+		printf_blue "Server directory already exists"
+	else
+		devnull gen-nginx --config
+		devnull gen-nginx php $HOSTNAME
+		if [ -d "/var/www/nginx/domains/$HOSTNAME" ]; then
+			printf_green "Created server in /var/www/nginx/domains/$HOSTNAME"
+		else
+			printf_red "Failed to create default server"
+		fi
+	fi
 fi
 if [ -f "/etc/httpd/conf/httpd.conf" ]; then
-  sed -i 's|ServerTokens .*|ServerTokens Prod|g' "/etc/httpd/conf/httpd.conf"
+	sed -i 's|ServerTokens .*|ServerTokens Prod|g' "/etc/httpd/conf/httpd.conf"
 fi
 if [ -n "$GET_WEB_USER" ]; then
-  if [ -f "/etc/nginx/nginx.conf" ]; then
-    sed -i '0,/^user .*/s//user  '$GET_WEB_USER';/' "/etc/nginx/nginx.conf"
-    grep -sqh "^user  $GET_WEB_USER" "/etc/nginx/nginx.conf" || echo "Failed to change the user in /etc/nginx/nginx.conf"
-  fi
-  if [ -f "/etc/php-fpm.d/www.conf" ]; then
-    sed -i '0,/^user .*/s//user = '$GET_WEB_USER'/' "/etc/php-fpm.d/www.conf"
-    grep -sqh "^user = $GET_WEB_USER" "/etc/php-fpm.d/www.conf" || echo "Failed to change the user in /etc/php-fpm.d/www.conf"
-  fi
-  if [ -f "/etc/httpd/conf/httpd.conf" ]; then
-    sed -i '0,/^User .*/s//User '$GET_WEB_USER'/' "/etc/httpd/conf/httpd.conf"
-    grep -sqh "^User $GET_WEB_USER" "/etc/httpd/conf/httpd.conf" || echo "Failed to change the user in /etc/httpd/conf/httpd.conf"
-  fi
-  for apache_dir in "/usr/local/share/httpd" "/var/www"; do
-    [ -d "$apache_dir" ] && chown -Rf $GET_WEB_USER "$apache_dir"
-  done
+	if [ -f "/etc/nginx/nginx.conf" ]; then
+		sed -i '0,/^user .*/s//user  '$GET_WEB_USER';/' "/etc/nginx/nginx.conf"
+		grep -sqh "^user  $GET_WEB_USER" "/etc/nginx/nginx.conf" || echo "Failed to change the user in /etc/nginx/nginx.conf"
+	fi
+	if [ -f "/etc/php-fpm.d/www.conf" ]; then
+		sed -i '0,/^user .*/s//user = '$GET_WEB_USER'/' "/etc/php-fpm.d/www.conf"
+		grep -sqh "^user = $GET_WEB_USER" "/etc/php-fpm.d/www.conf" || echo "Failed to change the user in /etc/php-fpm.d/www.conf"
+	fi
+	if [ -f "/etc/httpd/conf/httpd.conf" ]; then
+		sed -i '0,/^User .*/s//User '$GET_WEB_USER'/' "/etc/httpd/conf/httpd.conf"
+		grep -sqh "^User $GET_WEB_USER" "/etc/httpd/conf/httpd.conf" || echo "Failed to change the user in /etc/httpd/conf/httpd.conf"
+	fi
+	for apache_dir in "/usr/local/share/httpd" "/var/www"; do
+		[ -d "$apache_dir" ] && chown -Rf $GET_WEB_USER "$apache_dir"
+	done
 fi
 if [ -n "$GET_WEB_GROUP" ]; then
-  if [ -f "/etc/php-fpm.d/www.conf" ]; then
-    sed -i '0,/^group .*/s//group = '$GET_WEB_GROUP'/' "/etc/php-fpm.d/www.conf"
-    grep -sqh "^group = $GET_WEB_GROUP" "/etc/php-fpm.d/www.conf" || echo "Failed to change the group in /etc/php-fpm.d/www.conf"
-  fi
-  if [ -f "/etc/httpd/conf/httpd.conf" ]; then
-    sed -i '0,/^Group .*/s//Group '$GET_WEB_GROUP'/' "/etc/httpd/conf/httpd.conf"
-    grep -sqh "^Group $GET_WEB_GROUP" "/etc/httpd/conf/httpd.conf" || echo "Failed to change the group in /etc/httpd/conf/httpd.conf"
-  fi
-  for apache_dir in "/usr/local/share/httpd" "/var/www"; do
-    [ -d "$apache_dir" ] && chgrp -Rf $GET_WEB_GROUP "$apache_dir"
-  done
+	if [ -f "/etc/php-fpm.d/www.conf" ]; then
+		sed -i '0,/^group .*/s//group = '$GET_WEB_GROUP'/' "/etc/php-fpm.d/www.conf"
+		grep -sqh "^group = $GET_WEB_GROUP" "/etc/php-fpm.d/www.conf" || echo "Failed to change the group in /etc/php-fpm.d/www.conf"
+	fi
+	if [ -f "/etc/httpd/conf/httpd.conf" ]; then
+		sed -i '0,/^Group .*/s//Group '$GET_WEB_GROUP'/' "/etc/httpd/conf/httpd.conf"
+		grep -sqh "^Group $GET_WEB_GROUP" "/etc/httpd/conf/httpd.conf" || echo "Failed to change the group in /etc/httpd/conf/httpd.conf"
+	fi
+	for apache_dir in "/usr/local/share/httpd" "/var/www"; do
+		[ -d "$apache_dir" ] && chgrp -Rf $GET_WEB_GROUP "$apache_dir"
+	done
 fi
 ##################################################################################################################
 printf_head "Setting up the reverse proxy for cockpit"
 ##################################################################################################################
 if [ -d "/etc/nginx/vhosts.d" ]; then
-  cat <<EOF | tee "/etc/nginx/vhosts.d/cockpit.$set_domainname.conf" >/dev/null
+	cat <<EOF | tee "/etc/nginx/vhosts.d/cockpit.$set_domainname.conf" >/dev/null
 # reverse proxy for cockpit.$set_domainname
 # upstream cockpit { server https://localhost:41443 fail_timeout=0; }
 
@@ -1308,9 +1309,9 @@ printf_head "Creating directories"
 mkdir -p "/mnt/backups" "/var/www/html/.well-known" "/etc/letsencrypt/live"
 echo "" >>/etc/fstab
 if [ -n "$IS_NETWORK_INTERNAL" ] && devnull ping -q -W 1 -c 2 -t 1 10.0.254.1; then
-  echo "10.0.254.1:/mnt/Volume_1/backups         /mnt/backups                 nfs defaults,rw 0 0" >>/etc/fstab
-  echo "10.0.254.1:/etc/letsencrypt              /etc/letsencrypt             nfs defaults,rw 0 0" >>/etc/fstab
-  echo "10.0.254.1:/var/www/html/.well-known     /var/www/html/.well-known    nfs defaults,rw 0 0" >>/etc/fstab
+	echo "10.0.254.1:/mnt/Volume_1/backups         /mnt/backups                 nfs defaults,rw 0 0" >>/etc/fstab
+	echo "10.0.254.1:/etc/letsencrypt              /etc/letsencrypt             nfs defaults,rw 0 0" >>/etc/fstab
+	echo "10.0.254.1:/var/www/html/.well-known     /var/www/html/.well-known    nfs defaults,rw 0 0" >>/etc/fstab
 fi
 mount -a
 ##################################################################################################################
@@ -1325,59 +1326,59 @@ run_post "dfmgr update $DFMGR_CONFIGS"
 printf_head "Updating personal dotfiles"
 ##################################################################################################################
 if [ -x "$HOME/.local/dotfiles/personal/install.sh" ]; then
-  run_external "$HOME/.local/dotfiles/personal/install.sh"
+	run_external "$HOME/.local/dotfiles/personal/install.sh"
 fi
 [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
 [ -f "$HOME/.profile" ] && . "$HOME/.profile"
 ##################################################################################################################
 if [ "$SYSTEM_TYPE" = "vpn" ]; then
-  printf_head "Disabling services: httpd,nginx"
-  system_service_disable httpd
-  system_service_disable nginx
+	printf_head "Disabling services: httpd,nginx"
+	system_service_disable httpd
+	system_service_disable nginx
 fi
 if [ "$SYSTEM_TYPE" = "mail" ]; then
-  if [ -x "$HOME/Projects/github/dfprivate/email/install.sh" ]; then
-    printf_head "Running installer script for email server"
-    eval "$HOME/Projects/github/dfprivate/email/install.sh" >/dev/null 2>&1
-  fi
+	if [ -x "$HOME/Projects/github/dfprivate/email/install.sh" ]; then
+		printf_head "Running installer script for email server"
+		eval "$HOME/Projects/github/dfprivate/email/install.sh" >/dev/null 2>&1
+	fi
 elif [ "$SYSTEM_TYPE" = "db" ] || [ "$set_domainname" = "sqldb.us" ]; then
-  if [ -x "$HOME/Projects/github/dfprivate/sql/install.sh" ]; then
-    printf_head "Running installer script for database server"
-    eval "$HOME/Projects/github/dfprivate/sql/install.sh" >/dev/null 2>&1
-  fi
+	if [ -x "$HOME/Projects/github/dfprivate/sql/install.sh" ]; then
+		printf_head "Running installer script for database server"
+		eval "$HOME/Projects/github/dfprivate/sql/install.sh" >/dev/null 2>&1
+	fi
 elif [ "$SYSTEM_TYPE" = "dns" ] || [ "$set_domainname" = "casjaydns.com" ]; then
-  if [ -x "$HOME/Projects/github/dfprivate/dns/install.sh" ]; then
-    printf_head "Running installer script for dns server"
-    eval "$HOME/Projects/github/dfprivate/dns/install.sh" >/dev/null 2>&1
-  fi
+	if [ -x "$HOME/Projects/github/dfprivate/dns/install.sh" ]; then
+		printf_head "Running installer script for dns server"
+		eval "$HOME/Projects/github/dfprivate/dns/install.sh" >/dev/null 2>&1
+	fi
 fi
 ##################################################################################################################
 printf_head "Enabling services"
 ##################################################################################################################
 for service_enable in $SERVICES_ENABLE; do
-  if [ -n "$service_enable" ] && system_service_exists "$service_enable"; then
-    system_service_enable $service_enable
-    systemctl restart $service_enable >/dev/null 2>&1
-  fi
+	if [ -n "$service_enable" ] && system_service_exists "$service_enable"; then
+		system_service_enable $service_enable
+		systemctl restart $service_enable >/dev/null 2>&1
+	fi
 done
 ##################################################################################################################
 printf_head "Disabling services"
 ##################################################################################################################
 for service_disable in $SERVICES_DISABLE; do
-  if [ -n "$service_disable" ] && system_service_exists "$service_disable"; then
-    system_service_disable $service_disable
-  fi
+	if [ -n "$service_disable" ] && system_service_exists "$service_disable"; then
+		system_service_disable $service_disable
+	fi
 done
 ##################################################################################################################
 printf_head "Setting up docker"
 ##################################################################################################################
 if [ -n "$(type -P dockermgr 2>/dev/null)" ]; then
-  system_service_enable docker
-  devnull systemctl restart docker
-  run_post dockermgr init && devnull dockermgr init
+	system_service_enable docker
+	devnull systemctl restart docker
+	run_post dockermgr init && devnull dockermgr init
 fi
 if [ -n "$(type -P composemgr 2>/dev/null)" ]; then
-  run_post composemgr --config && devnull composemgr --env
+	run_post composemgr --config && devnull composemgr --env
 fi
 ##################################################################################################################
 printf_head "Disabling dnsmasq"
