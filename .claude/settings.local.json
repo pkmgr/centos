@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash -n /root/Projects/github/pkmgr/centos/scripts/min.sh)",
+      "Bash(command -v shellcheck)",
+      "Bash(shellcheck --version)",
+      "Bash(shellcheck /root/Projects/github/pkmgr/centos/scripts/min.sh)",
+      "Bash(shellcheck -f gcc /root/Projects/github/pkmgr/centos/scripts/min.sh)",
+      "Bash(shellcheck *)",
+      "Read(//tmp/**)",
+      "Bash(grep -rln 'eth0' .)",
+      "Bash(grep -rln 'mynetworkdevice' .)",
+      "Bash(grep -rln '\\\\$NETDEV' .)",
+      "Bash(grep -rlnE 'INTERFACE|IFACE|MYDEVICE|MY_DEVICE|MYNIC|MY_NIC|networkdevice|network_device' .)",
+      "Bash(bash -n scripts/min.sh)",
+      "Bash(command -v incus)",
+      "Read(//dev/**)",
+      "Bash(lscpu)",
+      "Bash(lsmod)",
+      "Bash(dnf install *)",
+      "Bash(systemctl restart *)",
+      "Bash(command -v qemu-system-x86_64)",
+      "Read(//usr/libexec/**)",
+      "Bash(journalctl -u incus -n 30 --no-pager)",
+      "Bash(/usr/bin/qemu-system-x86_64 --version)",
+      "Bash(rpm -q swtpm)",
+      "Bash(rpm -q virtiofsd)",
+      "Bash(journalctl -u incus -n 50 --no-pager)",
+      "Bash(rpm -ql edk2-ovmf)",
+      "Bash(dnf list *)",
+      "Bash(dnf search *)",
+      "Bash(dnf provides *)",
+      "Bash(rpm -qa)",
+      "Bash(dnf --showduplicates list qemu-kvm)",
+      "Bash(xargs -n1 basename)",
+      "Bash(rpm -q --whatprovides 'libvfio-user.so.0\\(\\)\\(64bit\\)')",
+      "Bash(rpm -q --requires qemu-kvm-core)",
+      "Bash(ldd /usr/bin/qemu-system-x86_64)"
+    ]
+  }
+}
