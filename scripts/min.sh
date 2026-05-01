@@ -503,17 +503,19 @@ run_post() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __kernel_ml() {
-	local exitC=0 pkgs="" running="" kernel=""
-	running="$(uname -r 2>/dev/null)"
-	[[ "$running" == *elrepo* ]] && kernel="$running"
+	local exitC=0 pkgs="" kernel=""
+	kernel="$(rpm -qa kernel-ml 2>/dev/null | tail -n1)"
 	local kernel_avail="$(yum search kernel-ml 2>&1 | awk '{print $1}' | grep '^kernel-ml-.*[.]' || return)"
+	# EL7 ships monolithic kernel-ml; EL8/9 split it into -core and -modules*. --skip-broken handles both.
+	local kml_pkgs="kernel-ml kernel-ml-core kernel-ml-modules kernel-ml-modules-extra"
 	if [ -n "$kernel" ]; then
-		printf_green "You are already running kernel-ml: $kernel"
+		printf_green "kernel-ml is already installed: $kernel"
 	elif [ -n "$kernel_avail" ]; then
 		printf_cyan "Switching to the newest kernel from elrepo - This may take a few minutes"
-		pkgs="$(rpm -qa | grep -v 'kernel-ml' | grep '^kernel')"
+		# Only remove base kernel boot/module packages. Keep kernel-tools, kernel-headers, kernel-devel etc.
+		pkgs="$(rpm -qa kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra 2>/dev/null)"
 		[ -n "$pkgs" ] && remove_pkg $pkgs
-		yum install -yyq kernel-ml kernel-core kernel-ml-modules kernel-ml-modules-extra kernel-ml-tools >/dev/null || exitC=1
+		yum install -yyq --skip-broken $kml_pkgs >/dev/null || exitC=1
 		run_grub
 	else
 		printf_yellow "kernel-ml doesn't seem to be available"
@@ -523,17 +525,19 @@ __kernel_ml() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __kernel_lt() {
-	local exitC=0 pkgs="" running="" kernel=""
-	running="$(uname -r 2>/dev/null)"
-	[[ "$running" == *elrepo* ]] && kernel="$running"
+	local exitC=0 pkgs="" kernel=""
+	kernel="$(rpm -qa kernel-lt 2>/dev/null | tail -n1)"
 	local kernel_avail="$(yum search kernel-lt 2>&1 | awk '{print $1}' | grep '^kernel-lt-.*[.]' || return)"
+	# EL7 ships monolithic kernel-lt; EL8/9 split it into -core and -modules*. --skip-broken handles both.
+	local klt_pkgs="kernel-lt kernel-lt-core kernel-lt-modules kernel-lt-modules-extra"
 	if [ -n "$kernel" ]; then
-		printf_green "You are already running kernel-lt: $kernel"
+		printf_green "kernel-lt is already installed: $kernel"
 	elif [ -n "$kernel_avail" ]; then
 		printf_cyan "Switching to the newest LTS kernel from elrepo - This may take a few minutes"
-		pkgs="$(rpm -qa | grep -v 'kernel-lt' | grep '^kernel')"
+		# Only remove base kernel boot/module packages. Keep kernel-tools, kernel-headers, kernel-devel etc.
+		pkgs="$(rpm -qa kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra 2>/dev/null)"
 		[ -n "$pkgs" ] && remove_pkg $pkgs
-		yum install -yyq kernel-lt kernel-lt-core kernel-lt-modules kernel-lt-modules-extra kernel-lt-tools >/dev/null || exitC=1
+		yum install -yyq --skip-broken $klt_pkgs >/dev/null || exitC=1
 		run_grub
 	else
 		printf_yellow "kernel-lt doesn't seem to be available"
@@ -645,7 +649,9 @@ fi
 if [ "$DEFAULT_KERNEL" != "kernel" ]; then
 	yum_conf="/etc/yum.conf"
 	[ -f "/etc/dnf/dnf.conf" ] && yum_conf="/etc/dnf/dnf.conf"
-	kernel_excl="kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra kernel-tools kernel-tools-libs kernel-tools-libs-devel kernel-headers kernel-devel kernel-debug kernel-debug-core kernel-debug-modules kernel-debug-modules-extra kernel-debug-devel kernel-doc"
+	# Exclude only base kernel boot/module packages so they don't get pulled back in.
+	# kernel-tools, kernel-headers, kernel-devel, etc. are intentionally NOT excluded - they update normally with base RHEL.
+	kernel_excl="kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra kernel-abi-stablelists"
 	if grep -qE '^exclude=' "$yum_conf" 2>/dev/null; then
 		if ! grep -qE '^exclude=.*\bkernel\b' "$yum_conf"; then
 			sed -i "/^exclude=/ s/$/ $kernel_excl/" "$yum_conf"
