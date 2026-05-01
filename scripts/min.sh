@@ -1165,36 +1165,31 @@ devnull timedatectl set-ntp true
 ##################################################################################################################
 printf_head "Configuring cloudflare dns for $SET_HOSTNAME"
 ##################################################################################################################
-CLOUDFLARE_PROXY="${CLOUDFLARE_PROXY:-false}"
-if [ -f "$HOME/.config/secure/cloudflare.txt" ]; then
-	. "$HOME/.config/secure/cloudflare.txt"
-	CLOUDFLARE_DEFAULT_ZONE="${CLOUDFLARE_DEFAULT_ZONE:-internal2.me}"
-	if [ -n "${CLOUDFLARE_ZONE_KEY:-$CLOUDFLARE_API_KEY}" ] && [ -n "$CLOUDFLARE_DEFAULT_ZONE" ] && [ -n "$CLOUDFLARE_EMAIL" ]; then
-		if type -P cloudflare >/dev/null 2>&1; then
-			if devnull cloudflare update $SET_HOSTNAME --proxy $CLOUDFLARE_PROXY; then
-				CLOUDFLARE_DOMAIN="yes"
-				devnull cloudflare update "*.$SET_HOSTNAME" --proxy $CLOUDFLARE_PROXY
-				printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_DEFAULT_ZONE"
-			elif devnull cloudflare create $SET_HOSTNAME --proxy $CLOUDFLARE_PROXY; then
-				CLOUDFLARE_DOMAIN="yes"
-				devnull cloudflare create "*.$SET_HOSTNAME" --proxy $CLOUDFLARE_PROXY
-				printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_DEFAULT_ZONE"
-			else
-				printf_red "Failed to create record $SET_HOSTNAME for zone $CLOUDFLARE_DEFAULT_ZONE"
-			fi
-		fi
+[ -f "$HOME/.config/secure/cloudflare.txt" ] && . "$HOME/.config/secure/cloudflare.txt"
+if [ -n "$CLOUDFLARE_EMAIL" ] && [ -n "$CLOUDFLARE_API_KEY" ] && [ -n "$CLOUDFLARE_ZONE_NAME" ] && type -P cloudflare >/dev/null 2>&1; then
+	cf_args=()
+	[ -n "$CLOUDFLARE_PROXY" ] && cf_args+=(--proxy "$CLOUDFLARE_PROXY")
+	if devnull cloudflare update "$SET_HOSTNAME" "${cf_args[@]}"; then
+		CLOUDFLARE_DOMAIN="yes"
+		devnull cloudflare update "*.$SET_HOSTNAME" "${cf_args[@]}"
+		printf_blue "Successfully updated $SET_HOSTNAME in $CLOUDFLARE_ZONE_NAME"
+	elif devnull cloudflare create "$SET_HOSTNAME" "${cf_args[@]}"; then
+		CLOUDFLARE_DOMAIN="yes"
+		devnull cloudflare create "*.$SET_HOSTNAME" "${cf_args[@]}"
+		printf_blue "Created $SET_HOSTNAME for $CLOUDFLARE_ZONE_NAME"
+	else
+		printf_red "Failed to create record $SET_HOSTNAME for zone $CLOUDFLARE_ZONE_NAME"
 	fi
-else
-	printf_yellow "Cannot load $HOME/.config/secure/cloudflare.txt"
+	unset cf_args
 fi
 if [ "$CLOUDFLARE_DOMAIN" = "yes" ] && [ "$CLOUDFLARE_PROXY" = "true" ]; then
 	if [ -d "/etc/nginx/vhosts.d" ]; then
-		cat <<EOF >"/etc/nginx/vhosts.d/$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE.conf"
+		cat <<EOF >"/etc/nginx/vhosts.d/$SET_HOSTNAME.$CLOUDFLARE_ZONE_NAME.conf"
 server {
     listen                                  80;
-    server_name                             $SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE *.$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE;
-    access_log                              /var/log/nginx/access.$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE.log;
-    error_log                               /var/log/nginx/error.$SET_HOSTNAME.$CLOUDFLARE_DEFAULT_ZONE.log info;
+    server_name                             $SET_HOSTNAME.$CLOUDFLARE_ZONE_NAME *.$SET_HOSTNAME.$CLOUDFLARE_ZONE_NAME;
+    access_log                              /var/log/nginx/access.$SET_HOSTNAME.$CLOUDFLARE_ZONE_NAME.log;
+    error_log                               /var/log/nginx/error.$SET_HOSTNAME.$CLOUDFLARE_ZONE_NAME.log info;
 
   location / {
     proxy_ssl_verify                        off;
