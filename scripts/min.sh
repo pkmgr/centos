@@ -1508,6 +1508,16 @@ elif [ "$SYSTEM_TYPE" = "dns" ] || [ "$set_domainname" = "casjaydns.com" ]; then
 	fi
 fi
 ##################################################################################################################
+printf_head "Removing iptables-legacy if iptables-nft is available"
+##################################################################################################################
+# iptables-legacy can prevent docker from starting on EL9. Remove only when iptables-nft is present
+# so the host is not left without an iptables binary, then point alternatives at the nft shim.
+if rpm -q iptables-legacy >/dev/null 2>&1 && rpm -q iptables-nft >/dev/null 2>&1; then
+	remove_pkg iptables-legacy
+	devnull alternatives --set iptables /usr/sbin/iptables-nft
+	devnull alternatives --set ip6tables /usr/sbin/ip6tables-nft
+fi
+##################################################################################################################
 printf_head "Enabling services"
 ##################################################################################################################
 for service_enable in $SERVICES_ENABLE; do
