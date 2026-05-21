@@ -211,18 +211,18 @@ pkg_name() {
                 python3-psutil)             echo py3-psutil ;;
                 python3-requests)           echo py3-requests ;;
                 python3-virtualenv)         echo py3-virtualenv ;;
-                php)                        echo php83 ;;
-                php-cli)                    echo php83-cli ;;
+                php)                        echo SKIP ;;
+                php-cli)                    echo SKIP ;;
                 php-common)                 echo SKIP ;;
-                php-fpm)                    echo php83-fpm ;;
-                php-gd)                     echo php83-gd ;;
-                php-gmp)                    echo php83-gmp ;;
-                php-intl)                   echo php83-intl ;;
-                php-mbstring)               echo php83-mbstring ;;
-                php-mysqlnd)                echo php83-pdo_mysql ;;
-                php-pdo)                    echo php83-pdo ;;
-                php-pgsql)                  echo php83-pgsql ;;
-                php-xml)                    echo php83-xml ;;
+                php-fpm)                    echo SKIP ;;
+                php-gd)                     echo SKIP ;;
+                php-gmp)                    echo SKIP ;;
+                php-intl)                   echo SKIP ;;
+                php-mbstring)               echo SKIP ;;
+                php-mysqlnd)                echo SKIP ;;
+                php-pdo)                    echo SKIP ;;
+                php-pgsql)                  echo SKIP ;;
+                php-xml)                    echo SKIP ;;
                 incus|incus-selinux|incus-tools) echo SKIP ;;
                 docker-ce)                  echo docker ;;
                 basesystem)                 echo alpine-base ;;
@@ -1189,9 +1189,9 @@ apply_content_transforms() {
                 -e 's|/etc/named|/etc/bind|g' \
                 -e 's|/var/named|/var/cache/bind|g' \
                 -e 's|/etc/yum.repos.d|/etc/apt/sources.list.d|g' \
-                -e 's|/etc/php-fpm\.conf|/etc/php/8.2/fpm/php-fpm.conf|g' \
-                -e 's|/etc/php-fpm\.d/|/etc/php/8.2/fpm/pool.d/|g' \
-                -e 's|/etc/php\.ini|/etc/php/8.2/cli/php.ini|g' \
+                -e 's|/etc/php-fpm\.conf|/etc/php/${PHP_VER}/fpm/php-fpm.conf|g' \
+                -e 's|/etc/php-fpm\.d/|/etc/php/${PHP_VER}/fpm/pool.d/|g' \
+                -e 's|/etc/php\.ini|/etc/php/${PHP_VER}/cli/php.ini|g' \
                 -e 's|/var/log/secure|/var/log/auth.log|g' \
                 -e 's|/var/log/maillog|/var/log/mail.log|g' \
                 -e "s|casjay-base/centos|casjay-base/$distro|g" \
@@ -1291,6 +1291,69 @@ service_list() {
                     echo 'SERVICES_DISABLE="avahi-daemon cups irqbalance"'
                     ;;
             esac
+            ;;
+    esac
+}
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# version_pkg_block DISTRO — emit distro-specific runtime version-conditional package section
+# Replaces the "Installing version-specific packages" section from centos source.
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+version_pkg_block() {
+    local distro="$1"
+    cat <<'HDR'
+##################################################################################################################
+HDR
+    echo "printf_head \"Installing version-specific packages\""
+    echo "##################################################################################################################"
+    case "$distro" in
+        debian|ubuntu|raspbian)
+            cat <<'BODY'
+# Detect installed PHP version for dynamic config path construction
+# (PHP paths in this script use ${PHP_VER} — set it before any config copy operations)
+PHP_VER="$(php --version 2>/dev/null | awk 'NR==1{print $2}' | cut -d. -f1,2)"
+[ -z "$PHP_VER" ] && PHP_VER="$(ls /etc/php/ 2>/dev/null | grep -E -- '^[0-9]' | sort -V | tail -1)"
+[ -z "$PHP_VER" ] && PHP_VER="8.2"
+# lsb-release: available on all supported Debian/Ubuntu versions
+install_pkg lsb-release
+BODY
+            ;;
+        fedora)
+            cat <<'BODY'
+# No EL-style version-specific packages on Fedora
+true
+BODY
+            ;;
+        arch)
+            cat <<'BODY'
+install_pkg lsb-release
+BODY
+            ;;
+        alpine)
+            cat <<'BODY'
+# Select PHP slot matching the running Alpine version
+_ALPINE_VER="$(cat /etc/alpine-release 2>/dev/null | cut -d. -f1,2)"
+case "$_ALPINE_VER" in
+    3.1[0-3]*) _PHP="php7" ;;
+    3.1[45]*)  _PHP="php8" ;;
+    3.16*)     _PHP="php8" ;;
+    3.17*)     _PHP="php81" ;;
+    3.18*)     _PHP="php82" ;;
+    *)         _PHP="php83" ;;
+esac
+install_pkg ${_PHP}
+install_pkg ${_PHP}-cli
+install_pkg ${_PHP}-fpm
+install_pkg ${_PHP}-gd
+install_pkg ${_PHP}-gmp
+install_pkg ${_PHP}-intl
+install_pkg ${_PHP}-mbstring
+install_pkg ${_PHP}-pdo_mysql
+install_pkg ${_PHP}-pdo
+install_pkg ${_PHP}-pgsql
+install_pkg ${_PHP}-xml
+unset _PHP _ALPINE_VER
+BODY
             ;;
     esac
 }
@@ -1445,6 +1508,10 @@ generate_min_sh() {
         # yum_conf path fix
         sed -i 's|/etc/dnf/dnf.conf|/etc/apt/apt.conf.d/99casjays|g' "$work"
     fi
+
+    # --- Step 14: Replace "Installing version-specific packages" section ---
+    version_pkg_block "$distro" >"$tmpdir/ver_block.txt"
+    replace_section "$work" "Installing version-specific packages" "$tmpdir/ver_block.txt" >"$tmpdir/work2.sh" && mv "$tmpdir/work2.sh" "$work"
 
     # Output result
     cat "$work"
