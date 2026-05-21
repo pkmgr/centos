@@ -39,11 +39,11 @@ pkg_name() {
                 mod_fcgid)                  echo libapache2-mod-fcgid ;;
                 mod_geoip)                  echo SKIP ;;
                 mod_http2)                  echo SKIP ;;
-                mod_maxminddb)              echo libapache2-mod-maxminddb ;;
+                mod_maxminddb)              echo SKIP ;;
                 mod_perl)                   echo libapache2-mod-perl2 ;;
                 mod_ssl)                    echo SKIP ;;
                 mod_wsgi)                   echo libapache2-mod-wsgi-py3 ;;
-                mod_proxy_html)             echo libapache2-mod-proxy-html ;;
+                mod_proxy_html)             echo SKIP ;;
                 mod_proxy_uwsgi)            echo libapache2-mod-proxy-uwsgi ;;
                 bind)                       echo bind9 ;;
                 bind-utils)                 echo dnsutils ;;
@@ -62,7 +62,7 @@ pkg_name() {
                 biosdevname)                echo SKIP ;;
                 harfbuzz)                   echo libharfbuzz0b ;;
                 gnupg2)                     echo gnupg2 ;;
-                gnutls)                     echo libgnutls-dev ;;
+                gnutls)                     echo libgnutls30 ;;
                 readline)                   echo libreadline-dev ;;
                 sqlite)                     echo sqlite3 ;;
                 oddjob-mkhomedir)           echo libpam-mkhomedir ;;
@@ -83,6 +83,16 @@ pkg_name() {
                 postfix-pcre)               echo SKIP ;;
                 glibc-langpack-en)          echo SKIP ;;
                 kernel-ml-modules|kernel-ml-modules-extra|kernel-lt-modules|kernel-lt-modules-extra) echo SKIP ;;
+                cracklib)                   echo libcrack2 ;;
+                cracklib-dicts)             echo cracklib-runtime ;;
+                ctags)                      echo universal-ctags ;;
+                man-pages)                  echo manpages ;;
+                ncurses)                    echo ncurses-base ;;
+                ncurses-libs)               echo libncurses6 ;;
+                pinentry)                   echo pinentry-curses ;;
+                xz)                         echo xz-utils ;;
+                xz-libs)                    echo liblzma5 ;;
+                zlib)                       echo zlib1g ;;
                 *)                          echo "$pkg" ;;
             esac
             ;;
