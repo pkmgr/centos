@@ -1491,6 +1491,12 @@ generate_min_sh() {
         # Alpine: skip tmpfiles.d and systemd sections
         sed -i '/\/etc\/systemd\//d' "$work"
         sed -i '/\/etc\/tmpfiles\.d\//d' "$work"
+        # Alpine: busybox grep does not support --no-filename long option; use -h
+        sed -i 's/grep --no-filename/grep -h/g' "$work"
+        # Alpine: hostnamectl is systemd-only; guard with a command check
+        sed -i 's/if hostnamectl set-hostname/if command -v hostnamectl >\/dev\/null 2>\&1 \&\& hostnamectl set-hostname/g' "$work"
+        # Alpine: passwd --stdin not available; use chpasswd
+        sed -i 's#echo "\$root_pass_1" | passwd --stdin root#echo "root:\$root_pass_1" | chpasswd#g' "$work"
     fi
 
     # --- Step 12: Alpine: update-ca-trust → update-ca-certificates ---
@@ -1512,6 +1518,46 @@ generate_min_sh() {
     # --- Step 14: Replace "Installing version-specific packages" section ---
     version_pkg_block "$distro" >"$tmpdir/ver_block.txt"
     replace_section "$work" "Installing version-specific packages" "$tmpdir/ver_block.txt" >"$tmpdir/work2.sh" && mv "$tmpdir/work2.sh" "$work"
+
+    # --- Step 15: Alpine: inject apt→apk shim before system-installer.bash source ---
+    # system-installer.bash does not recognise apk; it exits 1 if no known pkg manager
+    # is found.  A real /usr/local/bin/apt wrapper makes it fall through cleanly.
+    if [ "$distro" = "alpine" ]; then
+        cat >"$tmpdir/apt_shim.sh" <<'SHIM'
+# Create apt shim so system-installer.bash recognises a package manager on Alpine
+if ! command -v apt >/dev/null 2>&1 && command -v apk >/dev/null 2>&1; then
+	printf '#!/bin/sh\nexec apk add --no-cache "$@"\n' >/usr/local/bin/apt && chmod +x /usr/local/bin/apt
+fi
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+SHIM
+        awk '/^# Set functions$/{while((getline line < "'"$tmpdir/apt_shim.sh"'") > 0) print line; close("'"$tmpdir/apt_shim.sh"'")} {print}' "$work" >"$tmpdir/work2.sh" && mv "$tmpdir/work2.sh" "$work"
+
+        # --- Step 16: Alpine: override execute() after functions source ---
+        # system-installer.bash execute() uses mktemp /tmp/XXXXX (5 X's) which
+        # busybox mktemp rejects — requires exactly 6 X's.  Redefine execute()
+        # after the source block so every install_pkg call works on Alpine.
+        cat >"$tmpdir/execute_override.sh" <<'EXECOVERRIDE'
+# Override execute() for Alpine busybox mktemp compatibility
+execute() {
+	local cmd="$1"
+	local msg="${2:-$1}"
+	local tmpf
+	tmpf="$(mktemp)" || tmpf="/tmp/execute_$$"
+	printf '[ / ] %s\r' "$msg"
+	if eval "$cmd" >/dev/null 2>"$tmpf"; then
+		printf_execute_success "$msg"
+		rm -f "$tmpf"
+		return 0
+	else
+		printf_execute_error "$msg"
+		printf_execute_error_stream <"$tmpf"
+		rm -f "$tmpf"
+		return 1
+	fi
+}
+EXECOVERRIDE
+        awk '/^SCRIPT_OS=/{while((getline line < "'"$tmpdir/execute_override.sh"'") > 0) print line; close("'"$tmpdir/execute_override.sh"'")} {print}' "$work" >"$tmpdir/work2.sh" && mv "$tmpdir/work2.sh" "$work"
+    fi
 
     # Output result
     cat "$work"
