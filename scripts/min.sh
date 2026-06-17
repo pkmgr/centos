@@ -862,27 +862,22 @@ install_pkg perl-DBD-MySQL
 install_pkg perl-DBD-SQLite
 install_pkg perl-DBD-MariaDB
 install_pkg perl-DBD-Firebird
-# Enable Remi PHP 7.4 module stream before installing PHP packages.
-# casjay.repo excludes php* from AppStream to force Remi; the module must
-# be enabled first and AppStream excludes bypassed so dnf resolves from Remi.
-if type -P dnf >/dev/null 2>&1 && dnf module list php 2>/dev/null | grep -q 'remi-7.4'; then
+# install_pkg cannot accept dnf flags so PHP packages are installed in one
+# batch via __dnf_yum directly. $pkg is pre-set to "php" so the post-install
+# rpm -q check inside __dnf_yum verifies the base package correctly.
+# casjay.repo excludes php* from AppStream; --disableexcludes bypasses that
+# exclusion so dnf resolves from the enabled Remi stream.
+_php_pkgs="php php-cli php-common php-fpm php-gd php-gmp php-intl php-mbstring php-mysqlnd php-pdo php-pgsql php-xml"
+_php_extra_opts=""
+if type -P dnf >/dev/null 2>&1 && dnf module list php 2>/dev/null | grep -q 'remi-'; then
+	_php_stream="$(dnf module list php 2>/dev/null | grep 'remi-' | awk '{print $2}' | sort -V | tail -1)"
 	dnf module reset php -y >/dev/null 2>&1 || true
-	dnf module enable php:remi-7.4 -y >/dev/null 2>&1 || true
-	_php_install_opts="--disableexcludes=casjay-os-appstream"
+	[ -n "$_php_stream" ] && dnf module enable "php:${_php_stream}" -y >/dev/null 2>&1 || true
+	_php_extra_opts="--disableexcludes=casjay-os-appstream"
 fi
-install_pkg php $_php_install_opts
-install_pkg php-cli $_php_install_opts
-install_pkg php-common $_php_install_opts
-install_pkg php-fpm $_php_install_opts
-install_pkg php-gd $_php_install_opts
-install_pkg php-gmp $_php_install_opts
-install_pkg php-intl $_php_install_opts
-install_pkg php-mbstring $_php_install_opts
-install_pkg php-mysqlnd $_php_install_opts
-install_pkg php-pdo $_php_install_opts
-install_pkg php-pgsql $_php_install_opts
-install_pkg php-xml $_php_install_opts
-unset _php_install_opts
+pkg=php
+execute "__dnf_yum install -q -yy $_php_extra_opts $_php_pkgs" "Installing: PHP packages"
+unset _php_pkgs _php_extra_opts _php_stream pkg
 install_pkg pinentry
 install_pkg postfix
 install_pkg postfix-pcre
