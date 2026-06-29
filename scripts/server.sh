@@ -990,16 +990,29 @@ fi
 ##################################################################################################################
 printf_head "Configuring the firewall"
 ##################################################################################################################
-devnull systemctl start firewalld
-devnull firewall-cmd --permanent --zone=public --add-service=ssh
-devnull firewall-cmd --permanent --zone=public --add-service=http
-devnull firewall-cmd --permanent --zone=public --add-service=https
-devnull firewall-cmd --permanent --zone=public --remove-service=cockpit
-devnull firewall-cmd --permanent --zone=trusted --change-interface=docker0
-devnull firewall-cmd --permanent --zone=trusted --change-interface=incusbr0
-devnull firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 0 -p icmp -s 0.0.0.0/0 -d 0.0.0.0/0 -j ACCEPT
-devnull firewall-cmd --reload
-devnull systemctl stop firewalld
+if type -P firewall-cmd >/dev/null 2>&1 && system_service_active firewalld; then
+	devnull systemctl start firewalld
+	# ssh must never be blocked
+	devnull firewall-cmd --permanent --zone=public --add-service=ssh
+	devnull firewall-cmd --permanent --zone=public --add-port=22/tcp
+	devnull firewall-cmd --permanent --zone=public --add-service=http
+	devnull firewall-cmd --permanent --zone=public --add-service=https
+	devnull firewall-cmd --permanent --zone=public --add-port=25/tcp
+	devnull firewall-cmd --permanent --zone=public --add-port=465/tcp
+	devnull firewall-cmd --permanent --zone=public --add-port=587/tcp
+	devnull firewall-cmd --permanent --zone=public --remove-service=cockpit
+	if firewall-cmd --info-service=mosh >/dev/null 2>&1; then
+		devnull firewall-cmd --permanent --zone=public --add-service=mosh
+	else
+		devnull firewall-cmd --permanent --zone=public --add-port=5000-61000/udp
+	fi
+	devnull firewall-cmd --permanent --zone=trusted --change-interface=docker0
+	devnull firewall-cmd --permanent --zone=trusted --change-interface=incusbr0
+	# allow icmp/ping
+	devnull firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 0 -p icmp -s 0.0.0.0/0 -d 0.0.0.0/0 -j ACCEPT
+	devnull firewall-cmd --reload
+	devnull systemctl stop firewalld
+fi
 ##################################################################################################################
 printf_head "Configuring applications"
 ##################################################################################################################
