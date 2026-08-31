@@ -37,6 +37,7 @@ FORCE_INSTALL="${FORCE_INSTALL:-no}"
 if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 clear
+printf_green "Ensuring hostname and root account password are correct"
 if [ ! -d "/etc/casjaysdev" ]; then
 	if yum makecache && yum update -yy; then
 		echo "Rebooting your system: Please rerun this script after reboot"
@@ -86,7 +87,7 @@ if [ -n "$root_pass_1" ]; then
 	fi
 fi
 unset root_pass_1 root_pass_2
-printf "System setup completed continuing setup" && sleep 3 && clear
+printf_blue "System setup completed continuing setup" && sleep 3 && clear
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ -z "$(find /var/cache/swaps -mindepth 1 2>/dev/null)" ]; then
 	SWAP_SIZE="$(swapon --show=SIZE --noheadings 2>/dev/null | awk 'NR==1{gsub(/[0-9.]/,""); gsub(/ /,""); print}')"
