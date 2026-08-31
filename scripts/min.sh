@@ -36,6 +36,7 @@ FORCE_INSTALL="${FORCE_INSTALL:-no}"
 # Set bash options
 if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+clear
 if [ ! -d "/etc/casjaysdev" ]; then
 	if yum makecache && yum update -yy; then
 		echo "Rebooting your system: Please rerun this script after reboot"
@@ -85,6 +86,7 @@ if [ -n "$root_pass_1" ]; then
 	fi
 fi
 unset root_pass_1 root_pass_2
+printf "System setup completed continuing setup" && sleep 3 && clear
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ -z "$(find /var/cache/swaps -mindepth 1 2>/dev/null)" ]; then
 	SWAP_SIZE="$(swapon --show=SIZE --noheadings 2>/dev/null | awk 'NR==1{gsub(/[0-9.]/,""); gsub(/ /,""); print}')"
@@ -215,6 +217,7 @@ if ! grep --no-filename -sE '^ID=|^ID_LIKE=|^NAME=' /etc/*-release | grep -qiwE 
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$1" == "--help" ] && printf_exit "${GREEN}${SCRIPT_DESCRIBE} installer for $SCRIPT_OS${NC}"
+devnull() { "$@" >/dev/null 2>&1; }
 port_in_use() { netstatg 2>&1 | awk '{print $4}' | grep ':[0-9]' | awk -F':' '{print $2}' | grep '[0-9]' | grep -q "^$1$" || return 2; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 system_service_exists() { systemctl status "$1" 2>&1 | grep 'Loaded:' | grep -iq "$1" && return 0 || return 1; }
