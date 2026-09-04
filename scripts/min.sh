@@ -163,6 +163,11 @@ if [ -z "$(find /var/cache/swaps -mindepth 1 2>/dev/null)" ]; then
 	fi
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# epel-release must be enabled before the casjay-dotfiles/scripts installer
+# runs below - that installer's package list includes EPEL-only packages
+# (nethogs, iftop, iperf, pass, html2text) which silently fail to install
+# if epel is not yet available
+{ yum makecache &>/dev/null && yum install -yy -q epel-release &>/dev/null; } || true
 if [ ! -d "/usr/local/share/CasjaysDev/scripts" ]; then
 	git clone "https://github.com/casjay-dotfiles/scripts" "/usr/local/share/CasjaysDev/scripts" -q
 	eval "/usr/local/share/CasjaysDev/scripts/install.sh" || { echo "Failed to initialize" && exit 1; }
