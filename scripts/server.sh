@@ -1223,6 +1223,15 @@ does_group_exist "munin" && chgrp -Rf "munin" "/var/log/munin"
 does_user_exist 'munin-node' && chown -Rf "munin" "/var/log/munin-node"
 does_group_exist "munin-node" && chgrp -Rf "munin" "/var/log/munin-node"
 run_post "munin-node-configure --remove-also --shell" >/dev/null 2>/dev/null
+# Plugin credentials ship as the non-functional token CHANGEME_AT_BOOTSTRAP so a
+# real password is never committed - say so loudly instead of failing silently
+if grep -q 'CHANGEME_AT_BOOTSTRAP' "/etc/munin/plugin-conf.d/munin-node" 2>/dev/null; then
+  printf_yellow "Placeholder credentials remain in /etc/munin/plugin-conf.d/munin-node"
+  printf_yellow "Set the real passwords there, or delete the sections you do not monitor"
+fi
+# This file holds credentials once they are filled in - keep it off world-read
+chown -f root:munin "/etc/munin/plugin-conf.d/munin-node" 2>/dev/null
+chmod -f 640 "/etc/munin/plugin-conf.d/munin-node" 2>/dev/null
 ##################################################################################################################
 printf_head "Setting up tor"
 ##################################################################################################################
