@@ -127,7 +127,7 @@ else
   . "/tmp/$SCRIPTSFUNCTFILE"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SCRIPT_OS="AlmaLinux"
+SCRIPT_OS="RHEL/AlmaLinux/Rocky/Oracle/CentOS"
 SCRIPT_DESCRIBE="Minimal"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 SYSTEMMGR_CONFIGS="cron ssh ssl"
@@ -138,7 +138,8 @@ SCRIPT_NAME="$APPNAME"
 SCRIPT_NAME="${SCRIPT_NAME%.*}"
 RELEASE_VER="$(grep --no-filename -s 'VERSION_ID=' /etc/*-release | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}' | grep '^')"
 RELEASE_NAME="$(grep --no-filename -s '^NAME=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g;s| .*||g' | tr '[:upper:]' '[:lower:]' | grep '^')"
-RELEASE_TYPE="$(grep --no-filename -s '^ID_LIKE=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g' | tr '[:upper:]' '[:lower:]' | tr ' ' '\n' | grep 'centos' | grep '^')"
+RELEASE_ID="$(grep --no-filename -s '^ID=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g' | tr '[:upper:]' '[:lower:]' | grep '^')"
+RELEASE_TYPE="$(i="$RELEASE_ID"; l=" $(grep --no-filename -s '^ID_LIKE=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g' | tr '[:upper:]' '[:lower:]') "; if [ "$i" = "rhel" ] || [ "$i" = "centos" ] || [ "$i" = "ol" ] || [[ "$l" == *" rhel "* ]] || [[ "$l" == *" centos "* ]]; then echo "centos"; fi)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 DEFAULT_KERNEL="${DEFAULT_KERNEL:-kernel-ml}"
 ARCH="$(uname -m | tr '[:upper:]' '[:lower:]')"
@@ -169,7 +170,7 @@ SERVICES_DISABLE+="import-state.service irqbalance.service iscsi iscsid.socket i
 SERVICES_DISABLE+="lvm2-lvmpolld.socket lvm2-monitor mdmonitor multipathd.service multipathd.socket named nfs-client.target nis-domainname.service "
 SERVICES_DISABLE+="nmb radvd rpcbind.service rpcbind.socket shorewall shorewall6 smb sssd-kcm.socket timedatex.service tuned.service udisks2.service"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-grep --no-filename -sE '^ID=|^ID_LIKE=|^NAME=' /etc/*-release | grep -qiwE "$SCRIPT_OS" && true || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
+[ "$RELEASE_TYPE" = "centos" ] || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$1" == "--help" ] && printf_exit "${GREEN}${SCRIPT_DESCRIBE} installer for $SCRIPT_OS${NC}"
 port_in_use() { netstatg 2>&1 | awk '{print $4}' | grep ':[0-9]' | awk -F':' '{print $2}' | grep '[0-9]' | grep -q "^$1$" || return 2; }
@@ -344,23 +345,21 @@ retrieve_repo_file() {
   local YUM_DELETE="true"
   yum clean all &>/dev/null
   if [ "$RELEASE_TYPE" = "centos" ] && [ "$SET_HOSTNAME" != "pbx" ]; then
-    if [ "$RELEASE_VER" -ge "9" ]; then
-      YUM_DELETE="yes"
-      REPO_REPLACE="no"
-      RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
-    elif [ "$RELEASE_VER" -ge "8" ]; then
-      YUM_DELETE="yes"
-      REPO_REPLACE="yes"
-      RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh8.repo"
-    elif [ "$RELEASE_VER" -lt "8" ]; then
-      YUM_DELETE="yes"
-      REPO_REPLACE="yes"
-      RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
-    else
-      YUM_DELETE="no"
-      REPO_REPLACE="no"
-      RELEASE_FILE=""
-    fi
+    YUM_DELETE="yes"
+    case "$RELEASE_ID" in
+    almalinux) RELEASE_FILE_NAME="almalinux.$RELEASE_VER.repo" ;;
+    rocky) RELEASE_FILE_NAME="rockylinux.$RELEASE_VER.repo" ;;
+    ol) RELEASE_FILE_NAME="oraclelinux.$RELEASE_VER.repo" ;;
+    centos)
+      if [ "$RELEASE_VER" -le 7 ]; then
+        RELEASE_FILE_NAME="centos.$RELEASE_VER.repo"
+      else
+        RELEASE_FILE_NAME="almalinux.$RELEASE_VER.repo"
+      fi
+      ;;
+    *) RELEASE_FILE_NAME="almalinux.$RELEASE_VER.repo" ;;
+    esac
+    RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/$RELEASE_FILE_NAME"
   else
     yum makecache &>/dev/null
     return
@@ -370,10 +369,6 @@ retrieve_repo_file() {
     backup_repo_files
     rm_repo_files "$YUM_DELETE"
     save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
-    if [ "$ARCH" != "x86_64" ] && [ "$REPO_REPLACE" = "yes" ]; then
-      sed -i 's|.*http://mirrors.elrepo.org/mirrors-elrepo.*|baseurl=https://rpm-devel.sourceforge.io/repo/RHEL/$releasever/$basearch/empty|g' /etc/yum.repos.d/casjay.repo
-      sed -i 's|.*https://mirror.usi.edu/pub/remi/enterprise/.*|baseurl=https://rpm-devel.sourceforge.io/repo/RHEL/$releasever/$basearch/empty|g' /etc/yum.repos.d/casjay.repo
-    fi
     yum makecache &>/dev/null || statusCode=1
   fi
   [ "$statusCode" -ne 0 ] || printf '%b\n' "${YELLOW}Done updating repos${NC}"

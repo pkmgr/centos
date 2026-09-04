@@ -37,7 +37,6 @@ FORCE_INSTALL="${FORCE_INSTALL:-no}"
 if [ "$1" = "--debug" ]; then shift 1 && set -xo pipefail && export SCRIPT_OPTS="--debug" && export _DEBUG="on"; fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 clear
-printf_green "Ensuring hostname and root account password are correct"
 if [ ! -d "/etc/casjaysdev" ]; then
 	if yum makecache && yum update -yy; then
 		echo "Rebooting your system: Please rerun this script after reboot"
@@ -46,6 +45,7 @@ if [ ! -d "/etc/casjaysdev" ]; then
 	fi
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+printf "Ensuring hostname and root account password are correct"
 if ! type -P ifconfig >/dev/null 2>&1 && ! type -P hostname >/dev/null 2>&1; then
 	echo "Installing net-tools package"
 	yum install -yy net-tools -q
@@ -54,6 +54,20 @@ for pkg in sudo git curl wget; do
 	command -v $pkg &>/dev/null || { echo "Installing $pkg" && yum install -yy -q $pkg &>/dev/null || exit 1; } || { echo "Failed to install $pkg" && exit 1; }
 done
 unset pkg
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Set functions
+SCRIPTSFUNCTURL="${SCRIPTSFUNCTURL:-https://github.com/casjay-dotfiles/scripts/raw/main/functions}"
+SCRIPTSFUNCTDIR="${SCRIPTSFUNCTDIR:-/usr/local/share/CasjaysDev/scripts}"
+SCRIPTSFUNCTFILE="${SCRIPTSFUNCTFILE:-system-installer.bash}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+if [ -f "../functions/$SCRIPTSFUNCTFILE" ]; then
+	. "../functions/$SCRIPTSFUNCTFILE"
+elif [ -f "$SCRIPTSFUNCTDIR/functions/$SCRIPTSFUNCTFILE" ]; then
+	. "$SCRIPTSFUNCTDIR/functions/$SCRIPTSFUNCTFILE"
+else
+	curl -LSs "$SCRIPTSFUNCTURL/$SCRIPTSFUNCTFILE" -o "/tmp/$SCRIPTSFUNCTFILE" || exit 1
+	. "/tmp/$SCRIPTSFUNCTFILE"
+fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 read -r -t 30 -p "Enter your full hostname: (default: $HOSTNAME) " set_hostname
 set_hostname="${set_hostname:-$(hostname -f 2>/dev/null)}"
@@ -156,21 +170,7 @@ if [ ! -d "/usr/local/share/CasjaysDev/scripts" ]; then
 	sleep 5
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Set functions
-SCRIPTSFUNCTURL="${SCRIPTSFUNCTURL:-https://github.com/casjay-dotfiles/scripts/raw/main/functions}"
-SCRIPTSFUNCTDIR="${SCRIPTSFUNCTDIR:-/usr/local/share/CasjaysDev/scripts}"
-SCRIPTSFUNCTFILE="${SCRIPTSFUNCTFILE:-system-installer.bash}"
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if [ -f "../functions/$SCRIPTSFUNCTFILE" ]; then
-	. "../functions/$SCRIPTSFUNCTFILE"
-elif [ -f "$SCRIPTSFUNCTDIR/functions/$SCRIPTSFUNCTFILE" ]; then
-	. "$SCRIPTSFUNCTDIR/functions/$SCRIPTSFUNCTFILE"
-else
-	curl -LSs "$SCRIPTSFUNCTURL/$SCRIPTSFUNCTFILE" -o "/tmp/$SCRIPTSFUNCTFILE" || exit 1
-	. "/tmp/$SCRIPTSFUNCTFILE"
-fi
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SCRIPT_OS="AlmaLinux"
+SCRIPT_OS="RHEL/AlmaLinux/Rocky/Oracle/CentOS"
 SCRIPT_DESCRIBE="Minimal"
 GITHUB_USER="${GITHUB_USER:-casjay}"
 SYSTEMMGR_CONFIGS="cron ssh ssl"
@@ -183,7 +183,8 @@ SCRIPT_NAME="$APPNAME"
 SCRIPT_NAME="${SCRIPT_NAME%.*}"
 RELEASE_VER="$(. /etc/os-release 2>/dev/null; echo "${VERSION_ID%%.*}")"
 RELEASE_NAME="$(. /etc/os-release 2>/dev/null; n="${NAME,,}"; echo "${n%% *}")"
-RELEASE_TYPE="$(. /etc/os-release 2>/dev/null; [[ " $ID_LIKE " == *centos* ]] && echo "centos")"
+RELEASE_ID="$(. /etc/os-release 2>/dev/null; echo "${ID,,}")"
+RELEASE_TYPE="$(. /etc/os-release 2>/dev/null; i="${ID,,}"; l=" ${ID_LIKE,,} "; if [ "$i" = "rhel" ] || [ "$i" = "centos" ] || [ "$i" = "ol" ] || [[ "$l" == *" rhel "* ]] || [[ "$l" == *" centos "* ]]; then echo "centos"; fi)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 DEFAULT_KERNEL="${DEFAULT_KERNEL:-kernel-ml}"
 ARCH="$(uname -m | tr '[:upper:]' '[:lower:]')"
@@ -206,14 +207,14 @@ case "${SET_HOSTNAME:-$HOSTNAME}" in
 	devel*|build*|ci*|testing*)      SYSTEM_TYPE="devel" ;;
 esac
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SERVICES_ENABLE="cockpit cockpit.socket docker httpd munin-node nginx ntpd php-fpm postfix proftpd rsyslog snmpd sshd uptimed downtimed "
+SERVICES_ENABLE="cockpit cockpit.socket docker fail2ban httpd munin-node nginx ntpd php-fpm postfix proftpd rsyslog firewalld snmpd sshd uptimed downtimed "
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SERVICES_DISABLE="avahi-daemon.service avahi-daemon.socket cups.path cups.service cups.socket dhcpd dhcpd6 dm-event.socket fail2ban firewalld "
+SERVICES_DISABLE="avahi-daemon.service avahi-daemon.socket cups.path cups.service cups.socket dhcpd dhcpd6 dm-event.socket "
 SERVICES_DISABLE+="import-state.service irqbalance.service iscsi iscsid.socket iscsiuio.socket kdump loadmodules.service lvm2-lvmetad.socket "
 SERVICES_DISABLE+="lvm2-lvmpolld.socket lvm2-monitor mdmonitor multipathd.service multipathd.socket named nfs-client.target nis-domainname.service "
-SERVICES_DISABLE+="nmb radvd rpcbind.service rpcbind.socket shorewall shorewall6 smb sssd-kcm.socket timedatex.service tuned.service udisks2.service"
+SERVICES_DISABLE+="nmb radvd rpcbind.service rpcbind.socket firewalld smb sssd-kcm.socket timedatex.service tuned.service udisks2.service"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if ! grep --no-filename -sE '^ID=|^ID_LIKE=|^NAME=' /etc/*-release | grep -qiwE "$SCRIPT_OS"; then
+if [ "$RELEASE_TYPE" != "centos" ]; then
 	printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -408,23 +409,21 @@ retrieve_repo_file() {
 	local YUM_DELETE="true"
 	yum clean all &>/dev/null
 	if [ "$RELEASE_TYPE" = "centos" ] && { [ "$FORCE_INSTALL" = "yes" ] || [ "$SET_HOSTNAME" != "pbx" ]; }; then
-		if [ "$RELEASE_VER" -ge "9" ]; then
-			YUM_DELETE="yes"
-			REPO_REPLACE="no"
-			RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh9.repo"
-		elif [ "$RELEASE_VER" -ge "8" ]; then
-			YUM_DELETE="yes"
-			REPO_REPLACE="yes"
-			RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh8.repo"
-		elif [ "$RELEASE_VER" -lt "8" ]; then
-			YUM_DELETE="yes"
-			REPO_REPLACE="yes"
-			RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/casjay.rh.repo"
-		else
-			YUM_DELETE="no"
-			REPO_REPLACE="no"
-			RELEASE_FILE=""
-		fi
+		YUM_DELETE="yes"
+		case "$RELEASE_ID" in
+		almalinux) RELEASE_FILE_NAME="almalinux.$RELEASE_VER.repo" ;;
+		rocky) RELEASE_FILE_NAME="rockylinux.$RELEASE_VER.repo" ;;
+		ol) RELEASE_FILE_NAME="oraclelinux.$RELEASE_VER.repo" ;;
+		centos)
+			if [ "$RELEASE_VER" -le 7 ]; then
+				RELEASE_FILE_NAME="centos.$RELEASE_VER.repo"
+			else
+				RELEASE_FILE_NAME="almalinux.$RELEASE_VER.repo"
+			fi
+			;;
+		*) RELEASE_FILE_NAME="almalinux.$RELEASE_VER.repo" ;;
+		esac
+		RELEASE_FILE="https://github.com/rpm-devel/casjay-release/raw/main/$RELEASE_FILE_NAME"
 	else
 		yum makecache &>/dev/null
 		return
@@ -434,10 +433,6 @@ retrieve_repo_file() {
 		backup_repo_files
 		rm_repo_files "$YUM_DELETE"
 		save_remote_file "$RELEASE_FILE" "/etc/yum.repos.d/casjay.repo"
-		if [ "$ARCH" != "x86_64" ] && [ "$REPO_REPLACE" = "yes" ]; then
-			sed -i 's|.*http://mirrors.elrepo.org/mirrors-elrepo.*|baseurl=https://rpm-devel.sourceforge.io/repo/RHEL/$releasever/$basearch/empty|g' /etc/yum.repos.d/casjay.repo
-			sed -i 's|.*https://mirror.usi.edu/pub/remi/enterprise/.*|baseurl=https://rpm-devel.sourceforge.io/repo/RHEL/$releasever/$basearch/empty|g' /etc/yum.repos.d/casjay.repo
-		fi
 		yum makecache &>/dev/null || statusCode=1
 	fi
 	[ "$statusCode" -ne 0 ] || printf '%b\n' "${YELLOW}Done updating repos${NC}"
@@ -854,7 +849,6 @@ install_pkg ncurses-base
 install_pkg ncurses-libs
 install_pkg net-tools
 install_pkg nginx
-install_pkg ntp
 install_pkg oddjob-mkhomedir
 install_pkg openssh-server
 install_pkg openssl
@@ -953,6 +947,7 @@ run_grub
 ##################################################################################################################
 printf_head "Installing custom web server files"
 ##################################################################################################################
+if [ "${CONFIG_SETUP:-yes}" != "no" ]; then
 [ -d "$CONFIG_TEMP_DIR" ] && devnull rm_if_exists "$CONFIG_TEMP_DIR"
 devnull git clone -q "https://github.com/casjay-base/centos" "$CONFIG_TEMP_DIR"
 if [ -d "/var/www/html/sysinfo/.git" ]; then
@@ -1076,12 +1071,26 @@ fi
 if [ -z "$does_lo_have_ipv6" ]; then
 	sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' $CONFIG_TEMP_DIR/etc/postfix/main.cf
 fi
-devnull rm_if_exists $CONFIG_TEMP_DIR/etc/{fail2ban,shorewall,shorewall6}
+for fwdir in fail2ban firewalld; do
+	if [ -d "/etc/$fwdir" ]; then
+		devnull rm_if_exists "$CONFIG_TEMP_DIR/etc/$fwdir"
+	fi
+done
 devnull mkdir -p /etc/rsync.d /var/log/named
 devnull rsync -avhP $CONFIG_TEMP_DIR/{etc,root,usr,var}* /
+fi
+if [ -f /etc/fail2ban/jail.local ]; then
+	if type -P mysqld >/dev/null 2>&1 || type -P mariadbd >/dev/null 2>&1; then
+		devnull sed -i '/^\[mysqld-auth\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+	fi
+	if [ -x /opt/mssql/bin/sqlservr ] || systemctl list-unit-files 2>/dev/null | grep -q '^mssql-server'; then
+		devnull sed -i '/^\[mssql-auth\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+	fi
+fi
 devnull sed -i "s#myserverdomainname#$HOSTNAME#g" /etc/sysconfig/network
 devnull sed -i "s#mydomain#$set_domainname#g" /etc/sysconfig/network
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*
+devnull chmod -f 600 /etc/my.cnf
 devnull touch /etc/postfix/mydomains.pcre
 devnull chattr +i /etc/resolv.conf
 if [ -z "$IS_INSTALLED_BIND" ]; then
@@ -1540,6 +1549,17 @@ if rpm -q iptables-legacy >/dev/null 2>&1 && rpm -q iptables-nft >/dev/null 2>&1
 	remove_pkg iptables-legacy
 	devnull alternatives --set iptables /usr/sbin/iptables-nft
 	devnull alternatives --set ip6tables /usr/sbin/ip6tables-nft
+fi
+##################################################################################################################
+printf_head "Installing and enabling intrusion detection/prevention"
+##################################################################################################################
+install_pkg fail2ban
+install_pkg firewalld
+install_pkg ipset
+install_pkg rkhunter
+if type -P rkhunter >/dev/null 2>&1; then
+	devnull rkhunter --propupd
+	devnull rkhunter --update
 fi
 ##################################################################################################################
 printf_head "Enabling services"
