@@ -195,16 +195,35 @@ __get_www_group() {
   [ -n "$group" ] && echo "$group" | awk -F ':' '{print $1}' || return 9
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-copy_ca_certs() {
+__copy_ca_certs() {
+  local ssl_cn="" ssl_key="/etc/ssl/CA/CasjaysDev/private/localhost.key" ssl_crt="/etc/ssl/CA/CasjaysDev/certs/localhost.crt"
   if [ ! -d "/etc/letsencrypt/live/domain" ] || [ ! -L "/etc/letsencrypt/live/domain" ]; then
     printf_red "letsencrypt seemed to have failed: Installing self-signed certificates"
-    mkdir -p "/etc/letsencrypt/live/domain"
+    mkdir -p "/etc/letsencrypt/live/domain" "/etc/ssl/CA/CasjaysDev/private" "/etc/ssl/CA/CasjaysDev/certs"
+    # casjay-base ships a committed key/cert pair at this path - this is only a
+    # fallback for the rare case it's missing on the deployed host
+    if [ ! -s "$ssl_key" ] || [ ! -s "$ssl_crt" ]; then
+      ssl_cn="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo 'localhost')"
+      printf_cyan "Generating a self-signed certificate for $ssl_cn"
+      devnull openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout "$ssl_key" -out "$ssl_crt" -subj "/CN=$ssl_cn" -addext "subjectAltName=DNS:$ssl_cn,DNS:localhost,IP:127.0.0.1" ||
+        printf_red "Failed to generate a self-signed certificate"
+    fi
+    chmod -f 600 "$ssl_key"
+    chmod -f 644 "$ssl_crt"
     [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/letsencrypt/live/domain/cert.pem"
-    [ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/chain.pem"
-    [ -f "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/localhost.crt" "/etc/letsencrypt/live/domain/fullchain.pem"
-    [ -f "/etc/ssl/CA/CasjaysDev/private/localhost.key" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/private/localhost.key" "/etc/letsencrypt/live/domain/privkey.pem"
-    find "/etc/letsencrypt" -type f -exec chmod 664 {} \;
+    [ -f "$ssl_crt" ] && cp -Rf "$ssl_crt" "/etc/letsencrypt/live/domain/chain.pem"
+    [ -f "$ssl_crt" ] && cp -Rf "$ssl_crt" "/etc/letsencrypt/live/domain/fullchain.pem"
+    [ -f "$ssl_key" ] && cp -Rf "$ssl_key" "/etc/letsencrypt/live/domain/privkey.pem"
+    find "/etc/letsencrypt" -type f -exec chmod 644 {} \;
     find "/etc/letsencrypt" -type d -exec chmod 755 {} \;
+    chmod -f 600 "/etc/letsencrypt/live/domain/privkey.pem"
+    # Cockpit loads every pair in ws-certs.d - the key must stay owner-only
+    if [ -d "/etc/cockpit/ws-certs.d" ] && [ -s "$ssl_key" ]; then
+      cp -f "$ssl_crt" "/etc/cockpit/ws-certs.d/1-my-cert.cert"
+      cp -f "$ssl_key" "/etc/cockpit/ws-certs.d/1-my-cert.key"
+      chmod -f 644 "/etc/cockpit/ws-certs.d/1-my-cert.cert"
+      chmod -f 600 "/etc/cockpit/ws-certs.d/1-my-cert.key"
+    fi
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1101,7 +1120,9 @@ if [ -n "$le_primary_domain" ]; then
     if [ -d "/etc/cockpit/ws-certs.d" ]; then
       devnull rm_if_exists "/etc/cockpit/ws-certs.d"/*
       cat /etc/letsencrypt/live/domain/fullchain.pem >/etc/cockpit/ws-certs.d/1-my-cert.cert
-      cat /etc/letsencrypt/live/domain/privkey.pem >>/etc/cockpit/ws-certs.d/1-my-cert.key
+      cat /etc/letsencrypt/live/domain/privkey.pem >/etc/cockpit/ws-certs.d/1-my-cert.key
+      chmod -f 644 /etc/cockpit/ws-certs.d/1-my-cert.cert
+      chmod -f 600 /etc/cockpit/ws-certs.d/1-my-cert.key
     fi
     find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/certs/localhost.crt#/etc/letsencrypt/live/domain/fullchain.pem#g' {} \; 2>/dev/null
     find "/etc/postfix" "/etc/httpd" "/etc/nginx" /etc/proftpd* -type f -exec sed -i 's#/etc/ssl/CA/CasjaysDev/private/localhost.key#/etc/letsencrypt/live/domain/privkey.pem#g' {} \; 2>/dev/null
@@ -1117,12 +1138,16 @@ EOF
 #!/usr/bin/env sh
 cat "/etc/letsencrypt/live/domain/privkey.pem" >"/etc/ssl/certs/\$HOSTNAME.key"
 cat "/etc/letsencrypt/live/domain/fullchain.pem" >"/etc/ssl/certs/\$HOSTNAME.cert"
+chmod -f 600 "/etc/ssl/certs/\$HOSTNAME.key"
+chmod -f 644 "/etc/ssl/certs/\$HOSTNAME.cert"
 EOF
 
       cat <<EOF | tee "/etc/letsencrypt/renewal-hooks/post/cockpit.sh" >/dev/null
 #!/usr/bin/env sh
 cat "/etc/letsencrypt/live/domain/privkey.pem" >"/etc/cockpit/ws-certs.d/1-my-cert.key"
 cat "/etc/letsencrypt/live/domain/fullchain.pem" >"/etc/cockpit/ws-certs.d/1-my-cert.cert"
+chmod -f 600 "/etc/cockpit/ws-certs.d/1-my-cert.key"
+chmod -f 644 "/etc/cockpit/ws-certs.d/1-my-cert.cert"
 systemctl is-enabled cockpit >/dev/null 2>&1 && systemctl restart cockpit >/dev/null 2>&1
 
 EOF
@@ -1150,10 +1175,10 @@ privkey="\$(realpath "/etc/letsencrypt/live/domain/privkey.pem")"
 fullchain="\$(realpath "/etc/letsencrypt/live/domain/fullchain.pem")"
 openfireSSL="/opt/openfire/resources/security/hotdeploy"
 [ -d "\$openfireSSL" ] || mkdir -p "\$openfireSSL"
-cat "\$fullchain" "\$openfireSSL/casjay-social-cert.pem"
-cat "\$privkey" "\$openfireSSL/casjay-social-privkey.pem"
+cat "\$fullchain" >"\$openfireSSL/casjay-social-cert.pem"
+cat "\$privkey" >"\$openfireSSL/casjay-social-privkey.pem"
 chown -R daemon /opt/openfire/resources/security/hotdeploy
-ctl is-enabled openfire >/dev/null 2>&1 && systemctl restart openfire >/dev/null 2>&1
+systemctl is-enabled openfire >/dev/null 2>&1 && systemctl restart openfire >/dev/null 2>&1
 
 EOF
       fi
@@ -1161,10 +1186,10 @@ EOF
     fi
     printf_blue "letsencrypt certificates have been created"
   else
-    copy_ca_certs
+    __copy_ca_certs
   fi
 else
-  copy_ca_certs
+  __copy_ca_certs
 fi
 if [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ]; then
   if [ -d "/usr/local/share/ca-certificate" ]; then
@@ -1177,6 +1202,17 @@ if [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ]; then
 fi
 [ -n "$(type -P update-ca-trust)" ] && devnull update-ca-trust && devnull update-ca-trust extract
 [ -n "$(type -P dpkg-reconfigure)" ] && devnull dpkg-reconfigure ca-certificates
+##################################################################################################################
+printf_head "Setting up rsyncd"
+##################################################################################################################
+# The [backup] module requires an auth secret - generate one on first run only,
+# it is never shipped in casjay-base
+if [ -f "/etc/rsyncd.conf" ] && [ ! -s "/etc/rsyncd.secrets" ]; then
+  printf "backup:%s\n" "$(openssl rand -base64 24 | tr -d '\n')" >"/etc/rsyncd.secrets"
+  printf_cyan "Generated rsync credentials in /etc/rsyncd.secrets"
+fi
+chown -f root:root "/etc/rsyncd.secrets" 2>/dev/null
+chmod -f 600 "/etc/rsyncd.secrets" 2>/dev/null
 ##################################################################################################################
 printf_head "Setting up munin-node"
 ##################################################################################################################
@@ -1199,7 +1235,7 @@ if [ -n "$(type -P tor 2>/dev/null)" ]; then
       cat "$f" >>"/var/www/html/tor_hostname" 2>/dev/null
     done
   fi
-  prinf '%s\n\%s\n' "# Generate tor hosnames" "#30 * * * * root " >"/etc/cron.d/tor_hostname"
+  printf '%s\n\%s\n' "# Generate tor hostnames" "#30 * * * * root " >"/etc/cron.d/tor_hostname"
 fi
 ##################################################################################################################
 printf_head "Setting up bind dns [named]"
