@@ -217,7 +217,7 @@ SERVICES_ENABLE="cockpit cockpit.socket docker fail2ban httpd munin-node nginx n
 SERVICES_DISABLE="avahi-daemon.service avahi-daemon.socket cups.path cups.service cups.socket dhcpd dhcpd6 dm-event.socket "
 SERVICES_DISABLE+="import-state.service irqbalance.service iscsi iscsid.socket iscsiuio.socket kdump loadmodules.service lvm2-lvmetad.socket "
 SERVICES_DISABLE+="lvm2-lvmpolld.socket lvm2-monitor mdmonitor multipathd.service multipathd.socket named nfs-client.target nis-domainname.service "
-SERVICES_DISABLE+="nmb radvd rpcbind.service rpcbind.socket firewalld smb sssd-kcm.socket timedatex.service tuned.service udisks2.service"
+SERVICES_DISABLE+="nmb radvd rpcbind.service rpcbind.socket smb sssd-kcm.socket timedatex.service tuned.service udisks2.service"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ "$RELEASE_TYPE" != "centos" ]; then
 	printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
@@ -1095,11 +1095,7 @@ fi
 if [ -z "$does_lo_have_ipv6" ]; then
 	sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' $CONFIG_TEMP_DIR/etc/postfix/main.cf
 fi
-for fwdir in fail2ban firewalld; do
-	if [ -d "/etc/$fwdir" ]; then
-		devnull rm_if_exists "$CONFIG_TEMP_DIR/etc/$fwdir"
-	fi
-done
+devnull rm_if_exists $CONFIG_TEMP_DIR/etc/{fail2ban,shorewall,shorewall6}
 devnull mkdir -p /etc/rsync.d /var/log/named
 devnull rsync -avhP $CONFIG_TEMP_DIR/{etc,root,usr,var}* /
 fi
@@ -1194,24 +1190,12 @@ printf_head "Configuring the firewall"
 ##################################################################################################################
 if type -P firewall-cmd >/dev/null 2>&1 && system_service_active firewalld; then
 	devnull systemctl start firewalld
-	# ssh must never be blocked
-	devnull firewall-cmd --permanent --zone=public --add-service=ssh
-	devnull firewall-cmd --permanent --zone=public --add-port=22/tcp
-	devnull firewall-cmd --permanent --zone=public --add-service=http
-	devnull firewall-cmd --permanent --zone=public --add-service=https
-	devnull firewall-cmd --permanent --zone=public --add-port=25/tcp
-	devnull firewall-cmd --permanent --zone=public --add-port=465/tcp
-	devnull firewall-cmd --permanent --zone=public --add-port=587/tcp
-	devnull firewall-cmd --permanent --zone=public --remove-service=cockpit
-	if firewall-cmd --info-service=mosh >/dev/null 2>&1; then
-		devnull firewall-cmd --permanent --zone=public --add-service=mosh
-	else
-		devnull firewall-cmd --permanent --zone=public --add-port=5000-61000/udp
-	fi
+	# firewalld stays wide open (fail2ban's firewallcmd-ipset banaction does
+	# the actual blocking) - see etc/firewalld/zones/public.xml and
+	# etc/fail2ban/jail.d/00-firewalld.conf
+	devnull firewall-cmd --permanent --zone=public --set-target=ACCEPT
 	devnull firewall-cmd --permanent --zone=trusted --change-interface=docker0
 	devnull firewall-cmd --permanent --zone=trusted --change-interface=incusbr0
-	# allow icmp/ping
-	devnull firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 0 -p icmp -s 0.0.0.0/0 -d 0.0.0.0/0 -j ACCEPT
 	devnull firewall-cmd --reload
 	devnull systemctl stop firewalld
 fi

@@ -168,9 +168,9 @@ elif echo "${SET_HOSTNAME:-$HOSTNAME}" | grep -qE '^devel|^build|^ci|^testing'; 
   SYSTEM_TYPE="devel"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SERVICES_ENABLE="cockpit cockpit.socket docker httpd munin-node nginx ntpd php-fpm postfix proftpd rsyslog snmpd sshd uptimed downtimed "
+SERVICES_ENABLE="cockpit cockpit.socket docker fail2ban firewalld httpd munin-node nginx ntpd php-fpm postfix proftpd rsyslog snmpd sshd uptimed downtimed "
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SERVICES_DISABLE="avahi-daemon.service avahi-daemon.socket cups.path cups.service cups.socket dhcpd dhcpd6 dm-event.socket fail2ban firewalld "
+SERVICES_DISABLE="avahi-daemon.service avahi-daemon.socket cups.path cups.service cups.socket dhcpd dhcpd6 dm-event.socket "
 SERVICES_DISABLE+="import-state.service irqbalance.service iscsi iscsid.socket iscsiuio.socket kdump loadmodules.service lvm2-lvmetad.socket "
 SERVICES_DISABLE+="lvm2-lvmpolld.socket lvm2-monitor mdmonitor multipathd.service multipathd.socket named nfs-client.target nis-domainname.service "
 SERVICES_DISABLE+="nmb radvd rpcbind.service rpcbind.socket shorewall shorewall6 smb sssd-kcm.socket timedatex.service tuned.service udisks2.service"
@@ -183,7 +183,7 @@ port_in_use() { netstatg 2>&1 | awk '{print $4}' | grep ':[0-9]' | awk -F':' '{p
 system_service_exists() { systemctl status "$1" 2>&1 | grep 'Loaded:' | grep -iq "$1" && return 0 || return 1; }
 system_service_active() { (systemctl is-enabled "$1" || systemctl is-active "$1") | grep -qiE 'enabled|active' || return 1; }
 system_service_enable() { systemctl status "$1" 2>&1 | grep -iq 'inactive' && execute "systemctl enable --now $1" "Enabling service: $1" || return 1; }
-system_service_disable() { systemctl status "$1" 2>&1 | grep -iq 'active' && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
+system_service_disable() { systemctl is-active --quiet "$1" && execute "systemctl disable --now $1" "Disabling service: $1" || return 1; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 does_user_exist() { grep -qs "^$1:" "/etc/passwd" || return 1; }
 does_group_exist() { grep -qs "^$1:" "/etc/group" || return 1; }
@@ -1011,24 +1011,12 @@ printf_head "Configuring the firewall"
 ##################################################################################################################
 if type -P firewall-cmd >/dev/null 2>&1 && system_service_active firewalld; then
 	devnull systemctl start firewalld
-	# ssh must never be blocked
-	devnull firewall-cmd --permanent --zone=public --add-service=ssh
-	devnull firewall-cmd --permanent --zone=public --add-port=22/tcp
-	devnull firewall-cmd --permanent --zone=public --add-service=http
-	devnull firewall-cmd --permanent --zone=public --add-service=https
-	devnull firewall-cmd --permanent --zone=public --add-port=25/tcp
-	devnull firewall-cmd --permanent --zone=public --add-port=465/tcp
-	devnull firewall-cmd --permanent --zone=public --add-port=587/tcp
-	devnull firewall-cmd --permanent --zone=public --remove-service=cockpit
-	if firewall-cmd --info-service=mosh >/dev/null 2>&1; then
-		devnull firewall-cmd --permanent --zone=public --add-service=mosh
-	else
-		devnull firewall-cmd --permanent --zone=public --add-port=5000-61000/udp
-	fi
+	# firewalld stays wide open (fail2ban's firewallcmd-ipset banaction does
+	# the actual blocking) - see etc/firewalld/zones/public.xml and
+	# etc/fail2ban/jail.d/00-firewalld.conf
+	devnull firewall-cmd --permanent --zone=public --set-target=ACCEPT
 	devnull firewall-cmd --permanent --zone=trusted --change-interface=docker0
 	devnull firewall-cmd --permanent --zone=trusted --change-interface=incusbr0
-	# allow icmp/ping
-	devnull firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 0 -p icmp -s 0.0.0.0/0 -d 0.0.0.0/0 -j ACCEPT
 	devnull firewall-cmd --reload
 	devnull systemctl stop firewalld
 fi
