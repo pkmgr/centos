@@ -932,6 +932,39 @@ fi
 devnull rm_if_exists $CONFIG_TEMP_DIR/etc/{fail2ban,shorewall,shorewall6}
 devnull mkdir -p /etc/rsync.d /var/log/named
 devnull rsync -avhP $CONFIG_TEMP_DIR/{etc,root,usr,var}* /
+if [ -f /etc/fail2ban/jail.local ]; then
+  # Only enable a service jail when that service is actually present on
+  # this host - not every casjay-base host runs postfix/proftpd/httpd/
+  # nginx/named/dovecot/a database, and a jail pointed at a logpath that
+  # never gets created makes fail2ban report a jail-start error every boot.
+  if type -P postfix >/dev/null 2>&1; then
+    devnull sed -i '/^\[postfix\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+  fi
+  if type -P proftpd >/dev/null 2>&1; then
+    devnull sed -i '/^\[proftpd\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+  fi
+  if type -P httpd >/dev/null 2>&1; then
+    devnull sed -i '/^\[apache\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+  fi
+  if type -P nginx >/dev/null 2>&1; then
+    devnull sed -i '/^\[nginx-http-auth\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+    devnull sed -i '/^\[nginx-botsearch\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+    devnull sed -i '/^\[nginx-limit-req\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+  fi
+  if type -P named >/dev/null 2>&1; then
+    devnull sed -i '/^\[named-udp\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+    devnull sed -i '/^\[named-tcp\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+  fi
+  if type -P dovecot >/dev/null 2>&1; then
+    devnull sed -i '/^\[dovecot\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+  fi
+  if type -P mysqld >/dev/null 2>&1 || type -P mariadbd >/dev/null 2>&1; then
+    devnull sed -i '/^\[mysqld-auth\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+  fi
+  if [ -x /opt/mssql/bin/sqlservr ] || systemctl list-unit-files 2>/dev/null | grep -q -- '^mssql-server'; then
+    devnull sed -i '/^\[mssql-auth\]/,/^\[/{s/^enabled = false/enabled = true/}' /etc/fail2ban/jail.local
+  fi
+fi
 devnull sed -i "s#myserverdomainname#$HOSTNAME#g" /etc/sysconfig/network
 devnull sed -i "s#mydomain#$set_domainname#g" /etc/sysconfig/network
 devnull chmod 644 -Rf /etc/cron.d/* /etc/logrotate.d/*

@@ -33,3 +33,17 @@ than fixed inline to keep that commit's diff scoped to its actual change.
       992, 1127, 1128
 - [ ] Bare `return` with no code at line 384 — use `return 0`/`1`/`"$?"`
 - [ ] Bare `exit` with no code at line 1468 — use `exit 0`/`1`/`"$?"`
+
+## Pre-existing `script-lint` violations found 2026-09-09 (fail2ban
+jail.local conditional-enable companion commit)
+
+Broader `grep` missing-`--` sweep found by the same script-lint agent;
+supersedes the narrower line lists above for this category (the two new
+occurrences this commit introduced were fixed inline, not logged here).
+
+- [ ] scripts/min.sh: add `--` before the grep query at lines 155, 161,
+      228, 230–236, 329, 367, 474–490 (and other matches — re-run
+      `script-lint` for the full current list before fixing)
+- [ ] scripts/server.sh: add `--` before the grep query at lines 98, 104,
+      144, 155–167, 181, 183–189, 193, 240 (and other matches — re-run
+      `script-lint` for the full current list before fixing)
