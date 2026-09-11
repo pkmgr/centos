@@ -1193,13 +1193,14 @@ printf_head "Configuring the firewall"
 ##################################################################################################################
 if type -P firewall-cmd >/dev/null 2>&1 && system_service_active firewalld; then
 	devnull systemctl start firewalld
-	# firewalld stays wide open (fail2ban's firewallcmd-ipset banaction does
-	# the actual blocking) - see etc/firewalld/zones/public.xml and
-	# etc/fail2ban/jail.d/00-firewalld.conf
+	if system_service_active docker; then
+    devnull firewall-cmd --permanent --zone=trusted --change-interface=docker0
+  fi
+  if system_service_active incus; then
+    devnull firewall-cmd --permanent --zone=trusted --change-interface=incusbr0
+  fi
 	devnull firewall-cmd --permanent --zone=public --set-target=ACCEPT
-	devnull firewall-cmd --permanent --zone=trusted --change-interface=docker0
-	devnull firewall-cmd --permanent --zone=trusted --change-interface=incusbr0
-	devnull firewall-cmd --reload
+  devnull firewall-cmd --reload
 	devnull systemctl stop firewalld
 fi
 ##################################################################################################################
