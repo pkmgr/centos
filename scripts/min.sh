@@ -1293,6 +1293,18 @@ if [ "$incus_setup_failed" = "no" ]; then
 	fi
 fi
 ##################################################################################################################
+printf_head "Installing qemu/libvirt/kvm"
+##################################################################################################################
+__install_pkg qemu-kvm
+__install_pkg libvirt
+__install_pkg libvirt-client
+__install_pkg libvirt-daemon-kvm
+__install_pkg virt-install
+__install_pkg bridge-utils
+if __system_service_exists "libvirtd"; then
+	__devnull systemctl enable --now libvirtd
+fi
+##################################################################################################################
 printf_head "Configuring the firewall"
 ##################################################################################################################
 if type -P firewall-cmd >/dev/null 2>&1 && __system_service_active firewalld; then
