@@ -1194,7 +1194,7 @@ apply_content_transforms() {
                 -e 's|/etc/php\.ini|/etc/php/${PHP_VER}/cli/php.ini|g' \
                 -e 's|/var/log/secure|/var/log/auth.log|g' \
                 -e 's|/var/log/maillog|/var/log/mail.log|g' \
-                -e "s|casjay-base/centos|casjay-base/$distro|g" \
+                -e "s|casjay-base/rhel|casjay-base/$distro|g" \
                 -e "s|\"centos\"|\"$distro\"|g" \
                 -e 's|httpd >/dev/null|apache2 >/dev/null|g' \
                 -e 's|is-enabled httpd|is-enabled apache2|g' \
@@ -1206,7 +1206,7 @@ apply_content_transforms() {
             ;;
         fedora)
             sed \
-                -e "s|casjay-base/centos|casjay-base/$distro|g" \
+                -e "s|casjay-base/rhel|casjay-base/$distro|g" \
                 -e "s|\"centos\"|\"$distro\"|g" \
                 -e "s|SCRIPT_OS=\"AlmaLinux\"|SCRIPT_OS=\"$(distro_script_os "$distro")\"|g" \
                 -e 's|RELEASE_TYPE="$(. /etc/os-release.*echo "centos")"|RELEASE_TYPE="fedora"|g' \
@@ -1224,7 +1224,7 @@ apply_content_transforms() {
                 -e 's|/var/log/secure|/var/log/auth.log|g' \
                 -e 's|/var/log/maillog|/var/log/mail.log|g' \
                 -e 's|/var/www/html|/srv/http|g' \
-                -e "s|casjay-base/centos|casjay-base/$distro|g" \
+                -e "s|casjay-base/rhel|casjay-base/$distro|g" \
                 -e "s|\"centos\"|\"$distro\"|g" \
                 -e "s|SCRIPT_OS=\"AlmaLinux\"|SCRIPT_OS=\"$(distro_script_os "$distro")\"|g" \
                 -e 's|RELEASE_TYPE="$(. /etc/os-release.*echo "centos")"|RELEASE_TYPE=""|g' \
@@ -1244,7 +1244,7 @@ apply_content_transforms() {
                 -e 's|/var/log/secure|/var/log/auth.log|g' \
                 -e 's|/var/log/maillog|/var/log/mail.log|g' \
                 -e 's|/var/www/html|/var/www/localhost/htdocs|g' \
-                -e "s|casjay-base/centos|casjay-base/$distro|g" \
+                -e "s|casjay-base/rhel|casjay-base/$distro|g" \
                 -e "s|\"centos\"|\"$distro\"|g" \
                 -e "s|SCRIPT_OS=\"AlmaLinux\"|SCRIPT_OS=\"$(distro_script_os "$distro")\"|g" \
                 -e 's|RELEASE_TYPE="$(. /etc/os-release.*echo "centos")"|RELEASE_TYPE=""|g' \

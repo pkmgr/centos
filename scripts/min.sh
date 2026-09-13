@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202211071239-git
+##@Version           :  202609131048-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  WTFPL
@@ -27,7 +27,7 @@
 # shellcheck disable=SC2317
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 APPNAME="min"
-VERSION="202211071239-git"
+VERSION="202609131048-git"
 USER="${SUDO_USER:-${USER}}"
 HOME="${USER_HOME:-${HOME}}"
 CONFIG_TEMP_DIR="${TMPDIR:-/tmp}/minConfigFiles"
@@ -495,7 +495,7 @@ __backup_repo_files() { cp -Rf "/etc/yum.repos.d/." "$BACKUP_DIR" 2>/dev/null ||
 __rm_repo_files() { [ "${1:-$YUM_DELETE}" = "yes" ] && rm -Rf "/etc/yum.repos.d"/* &>/dev/null || return 0; }
 __run_external() { printf_green "Executing $*" && eval "$*" >/dev/null 2>&1 || return 1; }
 __save_remote_file() { urlverify "$1" && curl -q -SLs "$1" | tee "$2" &>/dev/null || exit 1; }
-__retrieve_version_file() { __grab_remote_file "https://github.com/casjay-base/centos/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
+__retrieve_version_file() { __grab_remote_file "https://github.com/casjay-base/rhel/raw/main/version.txt" | head -n1 || echo "Unknown version"; }
 __domain_name() {
 	local d="" f=""
 	d="$(hostname -d 2>/dev/null)"
@@ -1075,7 +1075,7 @@ printf_head "Installing custom web server files"
 ##################################################################################################################
 if [ "${PKMGR_CONFIG_SETUP:-yes}" != "no" ]; then
 [ -d "$CONFIG_TEMP_DIR" ] && __devnull __rm_if_exists "$CONFIG_TEMP_DIR"
-__devnull git clone -q "https://github.com/casjay-base/centos" "$CONFIG_TEMP_DIR"
+__devnull git clone -q "https://github.com/casjay-base/rhel" "$CONFIG_TEMP_DIR"
 if [ -d "/var/www/html/sysinfo/.git" ]; then
 	__devnull git -C "/var/www/html/sysinfo" reset --hard
 	__run_post git -C "/var/www/html/sysinfo" pull -q

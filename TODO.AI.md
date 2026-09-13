@@ -1,7 +1,7 @@
 # TODO
 
 Pre-existing `script-lint` violations found while linting an unrelated
-diff (2026-09-04, casjay-base/centos AUDIT.AI.md #25 companion commit).
+diff (2026-09-04, casjay-base/rhel AUDIT.AI.md #25 companion commit).
 None of these are in code touched by that commit — logged here rather
 than fixed inline to keep that commit's diff scoped to its actual change.
 
