@@ -1201,6 +1201,13 @@ fi
 __devnull __rm_if_exists $CONFIG_TEMP_DIR/etc/{fail2ban,shorewall,shorewall6}
 __devnull mkdir -p /etc/rsync.d /var/log/named
 __devnull rsync -avhP $CONFIG_TEMP_DIR/{etc,root,usr,var}* /
+# mod_geoip has no installable package on EL9/10 (the legacy Apache GeoIP
+# module was retired); guard the deployed httpd.conf so httpd can still
+# start when it's missing, without touching hosts where it's installed
+if [ -f /etc/httpd/conf/httpd.conf ] && [ ! -e /usr/lib64/httpd/modules/mod_geoip.so ] && [ ! -e /etc/httpd/modules/mod_geoip.so ]; then
+	__devnull sed -i '/^LoadModule geoip_module/s/^/#/' /etc/httpd/conf/httpd.conf
+	__devnull sed -i '/^GeoIPEnable\|^GeoIPDBFile/s/^/#/' /etc/httpd/conf/httpd.conf
+fi
 fi
 if [ -f /etc/fail2ban/jail.local ]; then
 	# Every jail in jail.local is permanently enabled - min.sh only runs
