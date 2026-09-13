@@ -1,4 +1,4 @@
-# CentOS packages
+# RHEL family packages
   
 To install .list file using pkmgr:  
 
