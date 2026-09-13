@@ -47,3 +47,16 @@ occurrences this commit introduced were fixed inline, not logged here).
 - [ ] scripts/server.sh: add `--` before the grep query at lines 98, 104,
       144, 155–167, 181, 183–189, 193, 240 (and other matches — re-run
       `script-lint` for the full current list before fixing)
+
+## Pre-existing `script-lint` violations found 2026-09-13 (centos->rhel
+RELEASE_TYPE semantic-tag rename companion commit — none on lines that
+commit touched)
+
+- [ ] pkmgr-sync.sh: UUOC quote spacing, grep missing `--`, internal
+      functions not using the required `__` prefix, bare `exit` codes
+      (re-run `script-lint` for exact line numbers before fixing)
+- [ ] scripts/template: add `--` before the grep query (4 occurrences),
+      UUOC grepping for non-empty result instead of a direct test, inline
+      comments that must move above the line, bare `return` with no code
+      (re-run `script-lint` for exact line numbers before fixing; the `__`
+      prefix naming rule's hook-name exception applies here)

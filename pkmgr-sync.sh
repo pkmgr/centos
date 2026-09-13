@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# pkmgr-sync.sh — generate per-distro scripts/min.sh from centos source
-# centos/scripts/min.sh is the source of truth; re-run whenever it changes.
+# pkmgr-sync.sh — generate per-distro scripts/min.sh from rhel source
+# rhel/scripts/min.sh is the source of truth; re-run whenever it changes.
 # Usage: ./pkmgr-sync.sh [distro...]   (omit to sync all distros)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
-# Support running from the parent collection dir or from inside centos/
+# Support running from the parent collection dir or from inside rhel/
 _SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -d "$_SCRIPT_DIR/centos" ]; then
+if [ -d "$_SCRIPT_DIR/rhel" ]; then
     BASEDIR="$_SCRIPT_DIR"
 else
-    # Script is inside a distro repo (e.g. centos/) — go up one level
+    # Script is inside a distro repo (e.g. rhel/) — go up one level
     BASEDIR="$(cd "$_SCRIPT_DIR/.." && pwd)"
 fi
 unset _SCRIPT_DIR
-SRC="$BASEDIR/centos/scripts/min.sh"
+SRC="$BASEDIR/rhel/scripts/min.sh"
 ALL_DISTROS=(debian ubuntu fedora raspbian arch alpine)
 
 [ -f "$SRC" ] || { echo "ERROR: source not found: $SRC" >&2; exit 1; }
@@ -1200,7 +1200,7 @@ apply_content_transforms() {
                 -e 's|is-enabled httpd|is-enabled apache2|g' \
                 -e 's|is-active httpd|is-active apache2|g' \
                 -e "s|SCRIPT_OS=\"AlmaLinux\"|SCRIPT_OS=\"$(distro_script_os "$distro")\"|g" \
-                -e 's|RELEASE_TYPE="$(. /etc/os-release.*echo "centos")"|RELEASE_TYPE=""|g' \
+                -e 's|echo "rhel"|echo ""|g' \
                 -e 's|run_external "__yum clean all"|run_external "__yum clean"|g' \
                 -e 's|run_external yum update -q -yy --skip-broken|run_external "apt-get upgrade -y -q"|g'
             ;;
@@ -1209,7 +1209,7 @@ apply_content_transforms() {
                 -e "s|casjay-base/rhel|casjay-base/$distro|g" \
                 -e "s|\"centos\"|\"$distro\"|g" \
                 -e "s|SCRIPT_OS=\"AlmaLinux\"|SCRIPT_OS=\"$(distro_script_os "$distro")\"|g" \
-                -e 's|RELEASE_TYPE="$(. /etc/os-release.*echo "centos")"|RELEASE_TYPE="fedora"|g' \
+                -e 's|echo "rhel"|echo "fedora"|g' \
                 -e "s|ID_LIKE.*centos\"|ID_LIKE.*fedora\"|g" \
                 -e 's|run_external "__yum clean all"|run_external "dnf clean all -q"|g' \
                 -e 's|run_external yum update -q -yy --skip-broken|run_external "dnf upgrade -y -q"|g'
@@ -1227,7 +1227,7 @@ apply_content_transforms() {
                 -e "s|casjay-base/rhel|casjay-base/$distro|g" \
                 -e "s|\"centos\"|\"$distro\"|g" \
                 -e "s|SCRIPT_OS=\"AlmaLinux\"|SCRIPT_OS=\"$(distro_script_os "$distro")\"|g" \
-                -e 's|RELEASE_TYPE="$(. /etc/os-release.*echo "centos")"|RELEASE_TYPE=""|g' \
+                -e 's|echo "rhel"|echo ""|g' \
                 -e 's|run_external "__yum clean all"|run_external "pacman -Sc --noconfirm"|g' \
                 -e 's|run_external yum update -q -yy --skip-broken|run_external "pacman -Syu --noconfirm"|g'
             ;;
@@ -1247,7 +1247,7 @@ apply_content_transforms() {
                 -e "s|casjay-base/rhel|casjay-base/$distro|g" \
                 -e "s|\"centos\"|\"$distro\"|g" \
                 -e "s|SCRIPT_OS=\"AlmaLinux\"|SCRIPT_OS=\"$(distro_script_os "$distro")\"|g" \
-                -e 's|RELEASE_TYPE="$(. /etc/os-release.*echo "centos")"|RELEASE_TYPE=""|g' \
+                -e 's|echo "rhel"|echo ""|g' \
                 -e 's|run_external "__yum clean all"|run_external "apk cache clean"|g' \
                 -e 's|run_external yum update -q -yy --skip-broken|run_external "apk upgrade"|g'
             ;;
@@ -1297,7 +1297,7 @@ service_list() {
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # version_pkg_block DISTRO — emit distro-specific runtime version-conditional package section
-# Replaces the "Installing version-specific packages" section from centos source.
+# Replaces the "Installing version-specific packages" section from rhel source.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 version_pkg_block() {
     local distro="$1"
@@ -1367,7 +1367,7 @@ generate_min_sh() {
     tmpdir="$(mktemp -d)"
     local work="$tmpdir/min.sh"
 
-    # Start with centos source
+    # Start with rhel source
     cp "$SRC" "$work"
 
     # --- Step 1: Replace header APPNAME and VERSION line ---

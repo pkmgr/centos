@@ -287,7 +287,7 @@ RELEASE_TYPE="$(
 	i="${ID,,}"
 	l=" ${ID_LIKE,,} "
 	if [ "$i" = "rhel" ] || [ "$i" = "centos" ] || [ "$i" = "ol" ] || [[ "$l" == *" rhel "* ]] || [[ "$l" == *" centos "* ]]; then
-		echo "centos"
+		echo "rhel"
 	fi
 )"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -319,7 +319,7 @@ SERVICES_DISABLE+="import-state.service irqbalance.service iscsi iscsid.socket i
 SERVICES_DISABLE+="lvm2-lvmpolld.socket lvm2-monitor mdmonitor multipathd.service multipathd.socket named nfs-client.target nis-domainname.service "
 SERVICES_DISABLE+="nmb radvd rpcbind.service rpcbind.socket smb sssd-kcm.socket timedatex.service tuned.service udisks2.service"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if [ "$RELEASE_TYPE" != "centos" ]; then
+if [ "$RELEASE_TYPE" != "rhel" ]; then
 	printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -533,7 +533,7 @@ __retrieve_repo_file() {
 	local statusCode="0"
 	local YUM_DELETE="true"
 	yum clean all &>/dev/null
-	if [ "$RELEASE_TYPE" = "centos" ] && { [ "$PKMGR_FORCE_INSTALL" = "yes" ] || [ "$SET_HOSTNAME" != "pbx" ]; }; then
+	if [ "$RELEASE_TYPE" = "rhel" ] && { [ "$PKMGR_FORCE_INSTALL" = "yes" ] || [ "$SET_HOSTNAME" != "pbx" ]; }; then
 		YUM_DELETE="yes"
 		case "$RELEASE_ID" in
 		almalinux) RELEASE_FILE_NAME="almalinux.$RELEASE_VER.repo" ;;

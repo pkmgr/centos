@@ -144,7 +144,7 @@ SCRIPT_NAME="${SCRIPT_NAME%.*}"
 RELEASE_VER="$(grep --no-filename -s 'VERSION_ID=' /etc/*-release | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}' | grep '^')"
 RELEASE_NAME="$(grep --no-filename -s '^NAME=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g;s| .*||g' | tr '[:upper:]' '[:lower:]' | grep '^')"
 RELEASE_ID="$(grep --no-filename -s '^ID=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g' | tr '[:upper:]' '[:lower:]' | grep '^')"
-RELEASE_TYPE="$(i="$RELEASE_ID"; l=" $(grep --no-filename -s '^ID_LIKE=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g' | tr '[:upper:]' '[:lower:]') "; if [ "$i" = "rhel" ] || [ "$i" = "centos" ] || [ "$i" = "ol" ] || [[ "$l" == *" rhel "* ]] || [[ "$l" == *" centos "* ]]; then echo "centos"; fi)"
+RELEASE_TYPE="$(i="$RELEASE_ID"; l=" $(grep --no-filename -s '^ID_LIKE=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g' | tr '[:upper:]' '[:lower:]') "; if [ "$i" = "rhel" ] || [ "$i" = "centos" ] || [ "$i" = "ol" ] || [[ "$l" == *" rhel "* ]] || [[ "$l" == *" centos "* ]]; then echo "rhel"; fi)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 DEFAULT_KERNEL="${DEFAULT_KERNEL:-kernel-ml}"
 ARCH="$(uname -m | tr '[:upper:]' '[:lower:]')"
@@ -175,7 +175,7 @@ SERVICES_DISABLE+="import-state.service irqbalance.service iscsi iscsid.socket i
 SERVICES_DISABLE+="lvm2-lvmpolld.socket lvm2-monitor mdmonitor multipathd.service multipathd.socket named nfs-client.target nis-domainname.service "
 SERVICES_DISABLE+="nmb radvd rpcbind.service rpcbind.socket shorewall shorewall6 smb sssd-kcm.socket timedatex.service tuned.service udisks2.service"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[ "$RELEASE_TYPE" = "centos" ] || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
+[ "$RELEASE_TYPE" = "rhel" ] || printf_exit "This installer is meant to be run on a $SCRIPT_OS based system"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$1" == "--help" ] && printf_exit "${GREEN}${SCRIPT_DESCRIBE} installer for $SCRIPT_OS${NC}"
 port_in_use() { netstatg 2>&1 | awk '{print $4}' | grep ':[0-9]' | awk -F':' '{print $2}' | grep '[0-9]' | grep -q "^$1$" || return 2; }
@@ -368,7 +368,7 @@ retrieve_repo_file() {
   local statusCode="0"
   local YUM_DELETE="true"
   yum clean all &>/dev/null
-  if [ "$RELEASE_TYPE" = "centos" ] && [ "$SET_HOSTNAME" != "pbx" ]; then
+  if [ "$RELEASE_TYPE" = "rhel" ] && [ "$SET_HOSTNAME" != "pbx" ]; then
     YUM_DELETE="yes"
     case "$RELEASE_ID" in
     almalinux) RELEASE_FILE_NAME="almalinux.$RELEASE_VER.repo" ;;
