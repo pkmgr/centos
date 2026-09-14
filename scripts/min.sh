@@ -367,9 +367,16 @@ __copy_ca_certs() {
 		fi
 		chmod -f 600 "$ssl_key"
 		chmod -f 644 "$ssl_crt"
-		[ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/letsencrypt/live/domain/cert.pem"
-		[ -f "$ssl_crt" ] && cp -Rf "$ssl_crt" "/etc/letsencrypt/live/domain/chain.pem"
-		[ -f "$ssl_crt" ] && cp -Rf "$ssl_crt" "/etc/letsencrypt/live/domain/fullchain.pem"
+		# cert.pem must be the leaf certificate that matches $ssl_key - it
+		# was previously set to the CA cert instead, which left cert.pem
+		# and privkey.pem as a non-matching pair (httpd: AH02565)
+		[ -f "$ssl_crt" ] && cp -Rf "$ssl_crt" "/etc/letsencrypt/live/domain/cert.pem"
+		[ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ] && cp -Rf "/etc/ssl/CA/CasjaysDev/certs/ca.crt" "/etc/letsencrypt/live/domain/chain.pem"
+		if [ -f "$ssl_crt" ] && [ -f "/etc/ssl/CA/CasjaysDev/certs/ca.crt" ]; then
+			cat "$ssl_crt" "/etc/ssl/CA/CasjaysDev/certs/ca.crt" >"/etc/letsencrypt/live/domain/fullchain.pem"
+		elif [ -f "$ssl_crt" ]; then
+			cp -Rf "$ssl_crt" "/etc/letsencrypt/live/domain/fullchain.pem"
+		fi
 		[ -f "$ssl_key" ] && cp -Rf "$ssl_key" "/etc/letsencrypt/live/domain/privkey.pem"
 		find "/etc/letsencrypt" -type f -exec chmod 644 {} \;
 		find "/etc/letsencrypt" -type d -exec chmod 755 {} \;
