@@ -1307,21 +1307,6 @@ if [ "$incus_setup_failed" = "no" ]; then
 	fi
 fi
 ##################################################################################################################
-printf_head "Configuring the firewall"
-##################################################################################################################
-if type -P firewall-cmd >/dev/null 2>&1 && __system_service_active firewalld; then
-	__devnull systemctl start firewalld
-	if __system_service_active docker; then
-    __devnull firewall-cmd --permanent --zone=trusted --change-interface=docker0
-  fi
-  if __system_service_active incus; then
-    __devnull firewall-cmd --permanent --zone=trusted --change-interface=incusbr0
-  fi
-	__devnull firewall-cmd --permanent --zone=public --set-target=ACCEPT
-  __devnull firewall-cmd --reload
-	__devnull systemctl stop firewalld
-fi
-##################################################################################################################
 printf_head "Configuring applications"
 ##################################################################################################################
 __devnull timedatectl set-ntp true
@@ -1746,6 +1731,28 @@ if type -P dockermgr >/dev/null 2>&1; then
 fi
 if type -P composemgr >/dev/null 2>&1; then
 	__run_post composemgr --config && __devnull composemgr --env
+fi
+##################################################################################################################
+printf_head "Configuring the firewall"
+##################################################################################################################
+# Must run after firewalld/docker/incus are installed and enabled (the
+# "Enabling services" and "Setting up docker" sections above) - checking
+# __system_service_active firewalld/docker this early always failed
+# because neither was started yet, so this block never actually ran and
+# every host was left on firewalld's stock restrictive default zone.
+# firewalld is left running (not stopped) since SERVICES_ENABLE already
+# expects it enabled+active; the permanent zone target of ACCEPT is what
+# makes it effectively allow-all without needing the service down.
+# docker-ce auto-manages its own "docker" firewalld zone for docker0 at
+# runtime (D-Bus, target=ACCEPT) - a manual --change-interface=docker0
+# binding here collides with it (ZONE_CONFLICT: 'docker0' already bound
+# to a zone) and is also redundant once the public zone below is
+# ACCEPT, so it has been dropped; incusbr0 is left off the same way for
+# consistency, since incus follows the same self-managed-zone pattern.
+if type -P firewall-cmd >/dev/null 2>&1; then
+	__devnull systemctl start firewalld
+	__devnull firewall-cmd --permanent --zone=public --set-target=ACCEPT
+	__devnull firewall-cmd --reload
 fi
 ##################################################################################################################
 printf_head "Disabling dnsmasq"
