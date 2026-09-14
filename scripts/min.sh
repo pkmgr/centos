@@ -1262,7 +1262,16 @@ else
 	__devnull chmod g+s /usr/sbin/postdrop
 	__devnull killall -9 postdrop
 	__devnull postfix set-permissions create-missing
-	__devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
+	if [ "$RELEASE_VER" -ge 10 ]; then
+		# el10's postfix build drops hash-map support (only lmdb/cdb/sdbm
+		# remain), but default_database_type is still compiled as "hash" -
+		# force lmdb explicitly, in main.cf and in postmap, so postfix
+		# doesn't hit "fatal: unsupported map type: hash"
+		__devnull sed -i 's#^smtp_sasl_password_maps.*#smtp_sasl_password_maps          = lmdb:/etc/postfix/sasl/passwd#' /etc/postfix/main.cf
+		__devnull postmap lmdb:/etc/postfix/transport lmdb:/etc/postfix/canonical lmdb:/etc/postfix/virtual lmdb:/etc/postfix/mydomains lmdb:/etc/postfix/sasl/passwd
+	else
+		__devnull postmap /etc/postfix/transport /etc/postfix/canonical /etc/postfix/virtual /etc/postfix/mydomains /etc/postfix/sasl/passwd
+	fi
 	__devnull newaliases &>/dev/null || newaliases.postfix -I &>/dev/null
 fi
 if ! grep -sq -- 'kernel.domainname' "/etc/sysctl.conf"; then
