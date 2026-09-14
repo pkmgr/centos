@@ -1216,6 +1216,13 @@ if [ -f /etc/httpd/conf/httpd.conf ] && [ ! -e /usr/lib64/httpd/modules/mod_geoi
 	__devnull sed -i '/^GeoIPEnable\|^GeoIPDBFile/s/^/#/' /etc/httpd/conf/httpd.conf
 fi
 fi
+# docker-ce on el8 (26.x) refuses to start with "ip6tables": true unless
+# "experimental": true is also set ("ip6tables rules are only available
+# if experimental features are enabled"); docker-ce on el9/10 (29.x) does
+# not enforce this, so only patch el8 to avoid changing behavior elsewhere
+if [ "$RELEASE_VER" -le 8 ] && [ -f /etc/docker/daemon.json ] && ! grep -q -- '"experimental"' /etc/docker/daemon.json; then
+	__devnull sed -i 's/"ip6tables": true,/"ip6tables": true,\n  "experimental": true,/' /etc/docker/daemon.json
+fi
 if [ -f /etc/fail2ban/jail.local ]; then
 	# Every jail in jail.local is permanently enabled - min.sh only runs
 	# once, at bootstrap, so a jail could never be enabled later if it
