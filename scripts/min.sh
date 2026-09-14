@@ -1205,7 +1205,7 @@ fi
 if [ -z "$does_lo_have_ipv6" ]; then
 	sed -i 's|inet_interfaces.*|inet_interfaces = 127.0.0.1|g' $CONFIG_TEMP_DIR/etc/postfix/main.cf
 fi
-__devnull __rm_if_exists $CONFIG_TEMP_DIR/etc/{fail2ban,shorewall,shorewall6}
+__devnull __rm_if_exists $CONFIG_TEMP_DIR/etc/{shorewall,shorewall6}
 __devnull mkdir -p /etc/rsync.d /var/log/named
 __devnull rsync -avhP $CONFIG_TEMP_DIR/{etc,root,usr,var}* /
 # mod_geoip has no installable package on EL9/10 (the legacy Apache GeoIP
